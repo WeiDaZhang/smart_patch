@@ -79,7 +79,18 @@ def hist_top_coord(coord_list, resolution = 10):
             hist_cum[idx, idy] = np.sum(coord_hist[idx : idx + resolution, idy : idy + resolution])
             
     cum_idn = np.unravel_index(hist_cum.argmax(), hist_cum.shape)
-    return [coord_org[0] + cum_idn[0], coord_org[1] + cum_idn[1]]
+    
+    all_cum_idn = np.argwhere(hist_cum == hist_cum[cum_idn])
+    print(f'Top Histogram Index List: {all_cum_idn}')
+    
+    if all_cum_idn.shape[0] > 1:
+        cum_idn_distance = np.mean(np.linalg.norm(np.diff(all_cum_idn, axis = 0), axis = 1))
+        print(f'Top Histogram Index Centre Distance: {cum_idn_distance}')
+        if cum_idn_distance < resolution * np.sqrt(2):
+            cum_idn = np.mean(all_cum_idn, axis = 0)
+    
+    print(f'Top Histogram Index List: {cum_idn}')
+    return [coord_org[0] + int(cum_idn[0]), coord_org[1] + int(cum_idn[1])]
         
 
 if __name__ == '__main__':
