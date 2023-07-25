@@ -1,62 +1,89 @@
 import time
 import os
 import numpy as np
-		
-def main():
-        tip_coord_list = np.array([ [ 473., 760.], [ 419., 954.], [ 415., 990.], [ 509., 681.],
-                                    [ 508., 680.], [ 326.,1172.], [ 509., 680.], [ 485., 648.],
-                                    [ 508., 680.], [ 357.,1162.], [ 509., 674.], [ 508., 680.],
-                                    [ 509., 681.], [ 400.,1081.], [ 509., 681.], [ 509., 681.],
-                                    [ 509., 681.], [ 508., 680.]])
-        print(tip_coord_list)
+import matplotlib.pyplot as plt
 
-		#Histogram of all the x,y coordinate pixels for tip
+def plot_surf(coord_list):
+    coord_list = np.array(coord_list)
+    map_range = [ np.max(coord_list[:, 0]), np.max(coord_list[:, 1])]
 
-        reson = 10
+    print(f"Map Range: {map_range}")
+    z = np.zeros((int(map_range[0] + 1),int(map_range[1] + 1)))
+    for idx in range(np.shape(coord_list)[0]):
+        z[int(coord_list[idx, 0]), int(coord_list[idx, 1])] = z[int(coord_list[idx, 0]), int(coord_list[idx, 1])] + 1
+    plt.style.use('_mpl-gallery-nogrid')
 
-        centre_coord = np.array([688,512])
+    # plot
+    fig, ax = plt.subplots()
 
-        tip_coord_list_x = tip_coord_list[:,1]
-        tip_coord_list_y = tip_coord_list[:,0]
+    ax.imshow(z)
 
+    plt.show()
 
-        tip_coord_list_x_range = np.max(tip_coord_list_x) - np.min(tip_coord_list_x)
-        tip_coord_x_hist, tip_coord_x_edge = np.histogram(tip_coord_list_x,int(tip_coord_list_x_range/reson))
-        bin_idx_x = np.argmax(tip_coord_x_hist)
+def read_coord():
+    f = open("histogram coordinates.txt", "r")
+    coord_list = []
+    all_coord_lists = []
+    text_lines = f.readlines()
+    for text in text_lines:
+        text = text.strip()
+        if not text:
+            coord_list.clear()
+            continue
+        elif text[0] == '[':
+            if text[1] == '[':
+                char_start = 2
+            else:
+                char_start = 1
+            if text[-2] == ']':
+                char_stop = -2
+            else:
+                char_stop = -1
+            text_list = text[char_start:char_stop].split()
+            coord_list.append([float(text_list[0]), float(text_list[1])])
+            if char_stop == -2:
+                all_coord_lists.append(coord_list.copy())
+
+    return all_coord_lists
+
+def hist_top_coord(coord_list, resolution = 10):
+    coord_list = np.array(coord_list)
+    print(f"Coordinate List: {coord_list}")
+    
+
+    coord_org = [np.min(coord_list[:, 0]), np.min(coord_list[:, 1])]
+
+    coord_range = [ np.max(coord_list[:, 0]) - np.min(coord_list[:, 0]),
+                    np.max(coord_list[:, 1]) - np.min(coord_list[:, 1])]
+
+    print(f"Coordinate Range: {coord_range}")
+    
+    coord_hist, coord_edge_x, coord_edge_y = np.histogram2d(coord_list[:, 0],
+                                                            coord_list[:, 1],
+                                                            (np.ceil(coord_range)).astype(int))
+    print(f"hist: {coord_hist}")
+    print(f"edge x: {coord_edge_x}")
+    print(f"edge y: {coord_edge_y}")
         
-        hist, edge = np.histogram(tip_coord_list_x,np.arange(np.min(tip_coord_list_x),np.max(tip_coord_list_x),1))
-        print(f"hist: {hist}")
-        print(f"edge: {edge}")
-        print(f"hist.size: {hist.size}")
-        moving_avg = np.empty(shape = (hist.size - reson))
-        for idx in range(hist.size - reson):
-            moving_avg[idx] = np.sum(hist[idx : idx + reson])
-        print(f"moving avg: {moving_avg}")
-        moving_avg_idx = np.argwhere(moving_avg == np.amax(moving_avg))
-        print(f"moving avg idx: {moving_avg_idx}")
-        print(f"moving avg idx.size: {moving_avg_idx.size}")
-        for idx in range(moving_avg_idx.size):
-            print(moving_avg[moving_avg_idx[idx]])
+    if np.min([coord_range[0] + 1, coord_range[1] + 1]) < resolution:
+        resolution = np.min(coord_range)
+        print(f'Resolution changed to: {resolution}')
+
+    search_range = [int(coord_range[0] + 1 - resolution + 1),
+                    int(coord_range[1] + 1 - resolution + 1)]
+    print(f"Search Range: {search_range}")
+    
+    hist_cum = np.empty(search_range)
+    for idy in range(0, search_range[1]):
+        for idx in range(0, search_range[0]):
+            hist_cum[idx, idy] = np.sum(coord_hist[idx : idx + resolution, idy : idy + resolution])
             
-        moving_avg_idx_diff = np.diff(moving_avg_idx, axis = 0)
-        print(moving_avg_idx_diff)
-        print(np.ones(shape = [moving_avg_idx_diff.size, 1]))
-        if moving_avg_idx_diff == np.ones(shape = moving_avg_idx_diff.size):
-            print(moving_avg_idx_diff)
-
-        tip_coord_list_y_range = np.max(tip_coord_list_y) - np.min(tip_coord_list_y)
-        tip_coord_y_hist, tip_coord_y_edge = np.histogram(tip_coord_list_y,int(tip_coord_list_y_range/reson))
-        bin_idx_y = np.argmax(tip_coord_y_hist)
-
-
-
-
-        tip_coord_most = np.array([int(np.average([tip_coord_x_edge[bin_idx_x], tip_coord_x_edge[bin_idx_x + 1]])), int(np.average([tip_coord_y_edge[bin_idx_y], tip_coord_y_edge[bin_idx_y + 1]]))])
-
-        print(f"centre distance = {np.linalg.norm(centre_coord - tip_coord_most)}")
-
-        print(f"tip coord most = {tip_coord_most}")
+    cum_idn = np.unravel_index(hist_cum.argmax(), hist_cum.shape)
+    return [coord_org[0] + cum_idn[0], coord_org[1] + cum_idn[1]]
         
 
 if __name__ == '__main__':
-    main()
+    all_coord_lists = read_coord()
+    for coord_list in all_coord_lists:
+        plot_surf(coord_list)
+        print(hist_top_coord(coord_list, 3))
