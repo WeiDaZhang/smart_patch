@@ -46,6 +46,30 @@ def read_coord():
 
     return all_coord_lists
 
+def search_centralized_coordinate(coord_list, radius):
+    #   coord_list: numpy array with shape of (x, 2)
+    #   radius:     centric radius
+    centre_coord = np.mean(coord_list, axis = 0)
+    centre_coord_distance = np.linalg.norm(coord_list - centre_coord, axis = 1)
+    centre_coord_mean_distance = np.mean(centre_coord_distance)
+    print(f'Coordinate List Centre Distance: {centre_coord_mean_distance}')
+    
+    dstr_coord_list = np.empty([0,2])
+    while centre_coord_mean_distance > radius * np.sqrt(2):
+        kick_coord = coord_list[np.argmax(centre_coord_distance),:].copy()
+        kick_coord.shape = (1, 2)
+        dstr_coord_list = np.append(dstr_coord_list, kick_coord, axis = 0)
+        coord_list = np.delete(coord_list, np.argmax(centre_coord_distance), 0)
+        
+        centre_coord = np.mean(coord_list, axis = 0)
+        centre_coord_distance = np.linalg.norm(coord_list - centre_coord, axis = 1)
+        centre_coord_mean_distance = np.mean(centre_coord_distance)
+        print(f'Updated Coordinate List Centre Distance: {centre_coord_mean_distance}')
+    print(f'Centralized Coordinate: {centre_coord}')
+    print(f'Centralized Coordinate Occurrence: {coord_list.shape[0]}')
+    print(f'Distributed Coordinates: {dstr_coord_list}')
+    return centre_coord, coord_list.shape[0], dstr_coord_list
+
 def hist_top_coord(coord_list, resolution = 10):
     coord_list = np.array(coord_list)
     print(f"Coordinate List: {coord_list}")
@@ -69,28 +93,39 @@ def hist_top_coord(coord_list, resolution = 10):
         resolution = np.min(coord_range)
         print(f'Resolution changed to: {resolution}')
 
-    search_range = [int(coord_range[0] + 1 - resolution + 1),
-                    int(coord_range[1] + 1 - resolution + 1)]
+    search_range = (np.rint([coord_range[0] + 1 - resolution + 1,
+                            coord_range[1] + 1 - resolution + 1])).astype(int)
     print(f"Search Range: {search_range}")
     
     hist_cum = np.empty(search_range)
     for idy in range(0, search_range[1]):
         for idx in range(0, search_range[0]):
-            hist_cum[idx, idy] = np.sum(coord_hist[idx : idx + resolution, idy : idy + resolution])
+            hist_cum[idx, idy] = np.sum(coord_hist[ idx : (np.rint(idx + resolution)).astype(int),
+                                                    idy : (np.rint(idy + resolution)).astype(int)])
             
     cum_idn = np.unravel_index(hist_cum.argmax(), hist_cum.shape)
     
     all_cum_idn = np.argwhere(hist_cum == hist_cum[cum_idn])
     print(f'Top Histogram Index List: {all_cum_idn}')
+    all_cum_idn_cnt =  all_cum_idn.shape[0]
     
-    if all_cum_idn.shape[0] > 1:
-        cum_idn_distance = np.mean(np.linalg.norm(np.diff(all_cum_idn, axis = 0), axis = 1))
-        print(f'Top Histogram Index Centre Distance: {cum_idn_distance}')
-        if cum_idn_distance < resolution * np.sqrt(2):
-            cum_idn = np.mean(all_cum_idn, axis = 0)
-    
-    print(f'Top Histogram Index List: {cum_idn}')
-    return [coord_org[0] + int(cum_idn[0]), coord_org[1] + int(cum_idn[1])]
+    centre_idn_occur_list = np.array([])
+    centre_idn_list = np.empty([0,2])
+    if all_cum_idn_cnt > 1:
+        while not all_cum_idn.size == 0:
+            centre_idn, centre_idn_occur, all_cum_idn = search_centralized_coordinate(all_cum_idn, resolution)
+            centre_idn_occur_list = np.append(centre_idn_occur_list, centre_idn_occur)
+            centre_idn.shape = (1, 2)
+            centre_idn_list = np.append(centre_idn_list, centre_idn, axis = 0)
+        print(centre_idn_list)
+        print(centre_idn_occur_list)
+    else:
+        centre_idn_list = all_cum_idn
+        centre_idn_occur_list = np.append(centre_idn_occur_list, 1)
+    print(f'Histogram Index List: {centre_idn_list}')
+    top_coord = coord_org + centre_idn_list
+    top_coord_chance = centre_idn_occur_list/all_cum_idn_cnt
+    return top_coord[0,:], top_coord_chance[0], top_coord[1:-1,:], top_coord_chance[1:-1]
         
 
 if __name__ == '__main__':
