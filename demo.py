@@ -16,6 +16,8 @@ import time
 import serial 
 import re
 
+from tip_search_hist import hist_top_coord
+
 import cv2 as cv
 import numpy as np
 
@@ -1348,20 +1350,23 @@ def main():
         #Histogram of all the x,y coordinate pixels for tip 
         reson = 10
         centre_coord = np.array([688,512])
-        tip_coord_list_x = tip_coord_list[:,1]
-        tip_coord_list_y = tip_coord_list[:,0]
-        tip_coord_list_x_range = np.max(tip_coord_list_x) - np.min(tip_coord_list_x)
-        tip_coord_x_hist, tip_coord_x_edge = np.histogram(tip_coord_list_x,int(tip_coord_list_x_range/reson)+1)
-        bin_idx_x = np.argmax(tip_coord_x_hist)
         
-        tip_coord_list_y_range = np.max(tip_coord_list_y) - np.min(tip_coord_list_y)
-        tip_coord_y_hist, tip_coord_y_edge = np.histogram(tip_coord_list_y,int(tip_coord_list_y_range/reson)+1)
-        bin_idx_y = np.argmax(tip_coord_y_hist)
+        # REPLACED W/ hist_top_coord FUNCTION
+        #tip_coord_list_x = tip_coord_list[:,1]
+        #tip_coord_list_y = tip_coord_list[:,0]
+        #tip_coord_list_x_range = np.max(tip_coord_list_x) - np.min(tip_coord_list_x)
+        #tip_coord_x_hist, tip_coord_x_edge = np.histogram(tip_coord_list_x,int(tip_coord_list_x_range/reson)+1)
+        #bin_idx_x = np.argmax(tip_coord_x_hist)
+        
+        #tip_coord_list_y_range = np.max(tip_coord_list_y) - np.min(tip_coord_list_y)
+        #tip_coord_y_hist, tip_coord_y_edge = np.histogram(tip_coord_list_y,int(tip_coord_list_y_range/reson)+1)
+        #bin_idx_y = np.argmax(tip_coord_y_hist)
 
-        tip_coord_most = np.array([int(np.average([tip_coord_x_edge[bin_idx_x], tip_coord_x_edge[bin_idx_x + 1]])), int(np.average([tip_coord_y_edge[bin_idx_y], tip_coord_y_edge[bin_idx_y + 1]]))])
-        print(f"centre distance = {np.linalg.norm(centre_coord - tip_coord_most)}")
+        #tip_coord_most = np.array([int(np.average([tip_coord_x_edge[bin_idx_x], tip_coord_x_edge[bin_idx_x + 1]])), int(np.average([tip_coord_y_edge[bin_idx_y], tip_coord_y_edge[bin_idx_y + 1]]))])
+        #print(f"centre distance = {np.linalg.norm(centre_coord - tip_coord_most)}")
 
-        print(f"tip coord most = {tip_coord_most}")
+        #print(f"tip coord most = {tip_coord_most}")
+        tip_coord_most, *_ = hist_top_coord(np.append(tip_coord_list[:, 1], tip_coord_list[:, 0], axis = 1), reson)
 
 
         #Relative coordinate plane rotation/translation for patchstar to slicescope
