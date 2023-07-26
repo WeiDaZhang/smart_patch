@@ -3,22 +3,50 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_surf(coord_list):
+def generate_circle_pixels(centre_coord, radius):
+    circumference = np.pi * 2 * radius
+    circumf_pixels = (np.rint(circumference)).astype(int)
+    theta_list = 2 * np.pi * np.arange(0, circumf_pixels) / circumf_pixels
+    circle_pixels = np.array([np.sin(theta_list) * radius, np.cos(theta_list) * radius])
+    centre_coord.shape = (1, 2)
+    return centre_coord + np.transpose(circle_pixels)
+
+def add_points_2_img(coord_list, img = np.zeros([0, 0])):
     coord_list = np.array(coord_list)
-    map_range = [ np.max(coord_list[:, 0]), np.max(coord_list[:, 1])]
+    map_range = (np.rint([ np.max(coord_list[:, 0]), np.max(coord_list[:, 1])])).astype(int)
 
-    print(f"Map Range: {map_range}")
-    z = np.zeros((int(map_range[0] + 1),int(map_range[1] + 1)))
+    print(f"Adding Points Coordinates Range to Display: {map_range}")
+    if img.shape[0] == 0 and img.shape[1] == 0:
+        img = np.zeros([int(map_range[0] + 1), int(map_range[1] + 1)])
+    elif img.shape[0] < map_range[0] and img.shape[1] < map_range[1]:
+        img = np.append(img, np.zeros([img.shape[0], map_range[1] - img.shape[1] + 1]), axis = 1)
+        img = np.append(img, np.zeros([map_range[0] - img.shape[0] + 1, map_range[1]]), axis = 0)
+    elif img.shape[0] < map_range[0]:
+        img = np.append(img, np.zeros([map_range[0] - img.shape[0] + 1, img.shape[1]]), axis = 0)
+    elif img.shape[1] < map_range[1]:
+        img = np.append(img, np.zeros([img.shape[0], map_range[1] - img.shape[1] + 1]), axis = 1)
+
     for idx in range(np.shape(coord_list)[0]):
-        z[int(coord_list[idx, 0]), int(coord_list[idx, 1])] = z[int(coord_list[idx, 0]), int(coord_list[idx, 1])] + 1
+        img[int(coord_list[idx, 0]), int(coord_list[idx, 1])] = img[int(coord_list[idx, 0]), int(coord_list[idx, 1])] + 1
+
+    return img
+
+def plot_image(img, fig = []):
     plt.style.use('_mpl-gallery-nogrid')
-
+    
     # plot
-    fig, ax = plt.subplots()
+    if not fig:
+        fig, ax = plt.subplots()
+    else:
+        ax = plt.gca()
 
-    ax.imshow(z)
+    ax.imshow(img)
 
-    plt.show()
+    plt.ion()
+    plt.show(block = False)
+    plt.pause(0.01)
+    
+    return fig
 
 def read_coord():
     f = open("histogram coordinates.txt", "r")
@@ -85,9 +113,9 @@ def hist_top_coord(coord_list, resolution = 10):
     coord_hist, coord_edge_x, coord_edge_y = np.histogram2d(coord_list[:, 0],
                                                             coord_list[:, 1],
                                                             (np.ceil(coord_range)).astype(int))
-    print(f"hist: {coord_hist}")
-    print(f"edge x: {coord_edge_x}")
-    print(f"edge y: {coord_edge_y}")
+    #print(f"hist: {coord_hist}")
+    #print(f"edge x: {coord_edge_x}")
+    #print(f"edge y: {coord_edge_y}")
         
     if np.min([coord_range[0] + 1, coord_range[1] + 1]) < resolution:
         resolution = np.min(coord_range)
@@ -105,7 +133,7 @@ def hist_top_coord(coord_list, resolution = 10):
             
     cum_idn = np.unravel_index(hist_cum.argmax(), hist_cum.shape)
     
-    all_cum_idn = np.argwhere(hist_cum == hist_cum[cum_idn])
+    all_cum_idn = np.argwhere(hist_cum == hist_cum[cum_idn]) + np.array([resolution/2, resolution/2])
     print(f'Top Histogram Index List: {all_cum_idn}')
     all_cum_idn_cnt =  all_cum_idn.shape[0]
     
@@ -117,19 +145,21 @@ def hist_top_coord(coord_list, resolution = 10):
             centre_idn_occur_list = np.append(centre_idn_occur_list, centre_idn_occur)
             centre_idn.shape = (1, 2)
             centre_idn_list = np.append(centre_idn_list, centre_idn, axis = 0)
-        print(centre_idn_list)
-        print(centre_idn_occur_list)
     else:
         centre_idn_list = all_cum_idn
         centre_idn_occur_list = np.append(centre_idn_occur_list, 1)
-    print(f'Histogram Index List: {centre_idn_list}')
-    top_coord = coord_org + centre_idn_list
+    top_coord_list = coord_org + centre_idn_list
     top_coord_chance = centre_idn_occur_list/all_cum_idn_cnt
-    return top_coord[0,:], top_coord_chance[0], top_coord[1:-1,:], top_coord_chance[1:-1]
+    print(f'Top Histogram Coordinate List: {top_coord_list}')
+    return top_coord_list[0,:], top_coord_chance[0], top_coord_list[1:-1,:], top_coord_chance[1:-1]
         
 
 if __name__ == '__main__':
     all_coord_lists = read_coord()
     for coord_list in all_coord_lists:
-        plot_surf(coord_list)
-        print(hist_top_coord(coord_list, 3))
+        img = add_points_2_img(coord_list)
+        fig = plot_image(img)
+        top_coord, top_coord_chance, rst_coord_list, rst_coord_chance = hist_top_coord(coord_list, 4)
+        img = add_points_2_img(generate_circle_pixels(top_coord, 10), img)
+        plot_image(img, fig)
+    input('Enter to Exit and Close All Images')
