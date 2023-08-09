@@ -260,7 +260,7 @@ class Slicescope:
 
         return local_z
 
-    def stepOut(self,step_out):
+    def stepOut(self,slicescope_z,step_out):
 
     ###### Note: Be sure to check limit when using 40x objective. This must be -4000.00 minimum.
 
@@ -282,7 +282,7 @@ class Slicescope:
 
         return local_z
 
-    def stepIn(self,step_in):
+    def stepIn(self,slicescope_z,step_in):
 
     ###### Note: Be sure to check limit when using 40x objective. This must be -4000.00 minimum.
 

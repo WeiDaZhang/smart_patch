@@ -340,7 +340,7 @@ class Patchstar:
 
         return local_z
 
-    def stepOut(self,step_out):
+    def stepOut(self,patchstar_z,patchstar_a,step_out):
     #Objective step in or out. Step in closer to sample. Step out away from sample.
 
         #Absolute value of step value
@@ -379,7 +379,7 @@ class Patchstar:
 
         return local_z, local_a
 
-    def stepIn(self,step_in):
+    def stepIn(self,patchstar_z,patchstar_a,step_in):
     #Objective step in or out. Step in closer to sample. Step out away from sample.
 
         #Absolute value of step value
