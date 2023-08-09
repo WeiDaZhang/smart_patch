@@ -46,7 +46,7 @@ class Image_window:
     def show_live(self):
         while True:
             frame_norm = self.frame * self.overlay
-            if np.max(frame_norm) > 255:
+            if not np.max(frame_norm) == 0:
                 frame_norm = frame_norm / np.max(frame_norm)
             frame_norm = np.round(frame_norm * 255).astype(np.uint8)
             cv.imshow(self.name, frame_norm)
@@ -57,6 +57,9 @@ class Image_window:
 
     def gen_rand_bw_frame(self):
         self.frame = np.floor(np.random.rand(self.size[0], self.size[1]) * 256).astype(np.uint8)
+
+    def set_bw_frame(self, frame):
+        self.frame = frame
 
     def clear_overlay(self):
         self.overlay = np.ones(self.size)

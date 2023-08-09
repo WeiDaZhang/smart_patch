@@ -19,7 +19,7 @@ class Slicescope:
     # Initialize instance with 'serial variable' in order to use serial.Serial functions
     def __init__(self,com_port):
         self.com_port = com_port
-        self.ser = serial.Serial(port=self.com_port, baudrate=9600, bytesize=8, parity='N', stopbits=serial.STOPBITS_ONE, timeout=2)
+        self.ser = serial.Serial(port=self.com_port, baudrate=38400, bytesize=8, parity='N', stopbits=serial.STOPBITS_ONE, timeout=2)
     
     def description(self):
         return "Slicescope"
@@ -30,7 +30,7 @@ class Slicescope:
         self.ser.write(b'P ? \r')
 
         byte_to_string = self.ser.readline().decode('utf-8')
-    
+        
         coords = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
     
         x_query = coords[0]

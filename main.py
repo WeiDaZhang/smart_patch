@@ -17,11 +17,12 @@ import threading
 import time
 
 #Classes
-import slicescope as Slicescope
-import patchstar as Patchstar
-import pvcam as PVCAM
-#import condenser as Condenser
+from slicescope import Slicescope
+from patchstar import Patchstar
+from pvcam import PVCAM
+#from condenser import Condenser
 from image_window import Image_window
+from image_process import Image_process
 
 def main():
 
@@ -41,7 +42,7 @@ def main():
 
     print('-----Micromanipulator-----')
 
-    patchstar = Patchstar('COM5')
+    patchstar = Patchstar('COM7')
 
     patchstar_x,patchstar_y,patchstar_z,patchstar_a = patchstar.coordinates()
     print(f"Micromanipulator values X = {patchstar_x}, Y = {patchstar_y}, Z = {patchstar_z}, A = {patchstar_a}")
@@ -53,7 +54,7 @@ def main():
 
     #This is the image Window, not the Camera, nor the image frame
     global img_wnd
-    img_wnd = Image_window()
+    img_wnd = Image_window(size = (1024, 1376))
 
     img_wnd.set_live_thread()
     img_wnd.thread.start()
@@ -62,17 +63,24 @@ def main():
     img_wnd.wait_window_ready()
     img_wnd.set_mouse_response()
 
+    img_proc = Image_process(slicescope)
+
     while True:
         # Generate random pixel map at a rate
-        img_wnd.gen_rand_bw_frame()
+        img_wnd.set_bw_frame(cam.get_frame())
+
         time.sleep(0.1)
 
         # If clicked a new coordinate, draw circle, and update coordinate
         if not img_wnd.click_coord == img_wnd.previous_click_coord:
             img_wnd.clear_overlay()
             img_wnd.overlay = cv.circle(img_wnd.overlay, img_wnd.click_coord, 10, 0, 3)
-            print(img_wnd.click_coord)
+            print(f'Click Coordinate = {img_wnd.click_coord}')
             img_wnd.click_coord_update()
+
+            img_proc.contour(img_wnd.frame)
+            print(img_proc.contours_2_coord_list())
+
 
         # Exit if img_wnd thread killed
         if not img_wnd.thread.is_alive():

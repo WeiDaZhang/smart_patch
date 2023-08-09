@@ -16,21 +16,21 @@ from pyvcam.camera import Camera
 from pyvcam import constants
 
 
-class imageProcess:
+class Image_process:
 
     # Class parameter
 
     # Instance method
-    def __init__(self,pvcam_instance,slicescope_instance):
-        self.pvcam_instance = pvcam_instance
+    #def __init__(self,pvcam_instance,slicescope_instance):
+    def __init__(self,slicescope_instance):
+        #self.pvcam_instance = pvcam_instance
         self.slicescope_instance = slicescope_instance
+        self.contours = []
 
     def description(self):
         return "Image Processing Functions"
 
-    def contour(self):
-
-        input_image = self.pvcam_instance.get_frame()
+    def contour(self, input_image):
 
         # Find Canny edges
         edged = cv.Canny(input_image, 30, 200)
@@ -40,11 +40,18 @@ class imageProcess:
         # since findContours alters the image
         contours, hierarchy = cv.findContours(edged, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
   
-        point_list=np.empty(shape=[0,2])
+        print("______")
+  
+        print("Number of Contours found = " + str(len(contours)))
+  
+        self.contours = contours
 
-        for contour in contours:
+    def contours_2_coord_list(self):
+        point_list = np.empty(shape=[0,2])
+
+        for contour in self.contours:
             for point in contour:
-                point_list=np.append(point_list,point,axis=0)
+                point_list = np.append(point_list,point,axis=0)
 
         avg = np.average(point_list, axis=0)
 
@@ -56,10 +63,6 @@ class imageProcess:
         else:
             tip_coord = avg
 
-        print("______")
-  
-        print("Number of Contours found = " + str(len(contours)))
-  
         return tip_coord
 
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
