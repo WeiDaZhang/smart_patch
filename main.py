@@ -8,31 +8,31 @@ import time
 from image_window import Image_window
 
 def main():
-    global img
-    img = Image_window()
+    #This is the image Window, not the Camera, nor the image frame
+    global img_wnd
+    img_wnd = Image_window()
 
-    thr = threading.Thread(target = img.show_live)
-    thr.start()
+    img_wnd.set_live_thread()
+    img_wnd.thread.start()
 
     # Wait for image window ready
-    while not cv.getWindowProperty(img.name, 4):   # WND_PROP_VISIBLE = 4
-        continue
-    cv.setMouseCallback(img.name, img.get_click_coord)
+    img_wnd.wait_window_ready()
+    img_wnd.set_mouse_response()
 
     while True:
         # Generate random pixel map at a rate
-        img.gen_rand_bw_frame()
+        img_wnd.gen_rand_bw_frame()
         time.sleep(0.1)
 
         # If clicked a new coordinate, draw circle, and update coordinate
-        if not img.click_coord == img.previous_click_coord:
-            img.clear_overlay()
-            img.overlay = cv.circle(img.overlay, img.click_coord, 10, 0, 3)
-            print(img.click_coord)
-            img.click_coord_update()
+        if not img_wnd.click_coord == img_wnd.previous_click_coord:
+            img_wnd.clear_overlay()
+            img_wnd.overlay = cv.circle(img_wnd.overlay, img_wnd.click_coord, 10, 0, 3)
+            print(img_wnd.click_coord)
+            img_wnd.click_coord_update()
 
-        # Exit if img thread killed
-        if not thr.is_alive():
+        # Exit if img_wnd thread killed
+        if not img_wnd.thread.is_alive():
             break
 
 if __name__ == '__main__':

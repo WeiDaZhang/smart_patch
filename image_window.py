@@ -14,13 +14,34 @@ class Image_window:
         self.click_coord = [0, 0]
         self.previous_click_coord = [0, 0]
         self.target_frame_rate = target_frame_rate
+        self.thread = []
+
+    def set_live_thread(self):
+        self.thread = threading.Thread(target = self.show_live)
+        
+    def wait_window_ready(self):
+        while not cv.getWindowProperty(self.name, cv.WND_PROP_VISIBLE):
+            continue
+
+    def set_mouse_response(self):
+        cv.setMouseCallback(self.name, self.mouse_response)
 
     def click_coord_update(self):
         self.previous_click_coord = self.click_coord.copy()
 
-    def get_click_coord(self, event, x, y, flags, param):
+    def mouse_response(self, event, x, y, flags, param):
+        # Mouse Left Button Press and Drag calls get coordinate
         if event == cv.EVENT_LBUTTONDOWN:
-            self.click_coord = [x, y]
+            self.get_click_coord(x, y)
+        elif event == cv.EVENT_LBUTTONUP:
+            self.get_click_coord(x, y)
+        elif event == cv.EVENT_MOUSEMOVE:
+            if flags:
+                if flags == cv.EVENT_FLAG_LBUTTON:
+                    self.get_click_coord(x, y)
+
+    def get_click_coord(self, x, y):
+        self.click_coord = [x, y]
 
     def show_live(self):
         while True:
