@@ -21,19 +21,22 @@ class Image_process:
     # Class parameter
 
     # Instance method
-    def __init__(self,slicescope_instance):
+    def __init__(self, input_image, slicescope_instance):
         self.slicescope_instance = slicescope_instance
+        self.frame = input_image
         self.contours = []
+        self.contour_hierarchy = []
         self.contour_coord_list = np.empty(shape = [0, 2])
         self.contour_coord_avg = np.empty(shape = [0, 2])
+        self.hough_line_list = np.empty(shape = [0, 3])
 
     def description(self):
         return "Image Processing Functions"
 
-    def contour(self, input_image):
+    def contour(self):
 
         # Find Canny edges
-        edged = cv.Canny(input_image, 30, 200)
+        edged = cv.Canny(self.frame, 30, 200)
   
         # Finding Contours
         # Use a copy of the image e.g. edged.copy()
@@ -45,6 +48,7 @@ class Image_process:
         print("Number of Contours found = " + str(len(contours)))
   
         self.contours = contours
+        self.contour_hierarchy = hierarchy
 
     def contours_2_coord_list(self):
         # Squash contour to a list of coordinates
@@ -54,6 +58,9 @@ class Image_process:
 
         self.contour_coord_avg = np.average(self.contour_coord_list, axis = 0)
 
+    def hough_lines(self, rho = 0.1, theta = np.pi / 180, min_votes = 20):
+        self.hough_line_list = cv.HoughLines(self.frame, rho, theta, min_votes)
+        
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
 
         #Move slicescope down until probe is out of focus
