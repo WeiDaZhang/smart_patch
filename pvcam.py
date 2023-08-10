@@ -36,6 +36,8 @@ class PVCAM:
         #self.cam = next(Camera.detect_camera()) # Use generator to find first camera.
         self.cam = Camera.select_camera(camera_names[0])
         self.cam.open()  # Open the camera.
+        # Get frame size
+        self.size = self.cam.sensor_size[::-1]
 
     def description(self):
         return "Camera"

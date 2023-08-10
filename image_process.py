@@ -21,11 +21,11 @@ class Image_process:
     # Class parameter
 
     # Instance method
-    #def __init__(self,pvcam_instance,slicescope_instance):
     def __init__(self,slicescope_instance):
-        #self.pvcam_instance = pvcam_instance
         self.slicescope_instance = slicescope_instance
         self.contours = []
+        self.contour_coord_list = np.empty(shape = [0, 2])
+        self.contour_coord_avg = np.empty(shape = [0, 2])
 
     def description(self):
         return "Image Processing Functions"
@@ -47,23 +47,12 @@ class Image_process:
         self.contours = contours
 
     def contours_2_coord_list(self):
-        point_list = np.empty(shape=[0,2])
-
+        # Squash contour to a list of coordinates
         for contour in self.contours:
             for point in contour:
-                point_list = np.append(point_list,point,axis=0)
+                self.contour_coord_list = np.append(self.contour_coord_list, point, axis = 0)
 
-        avg = np.average(point_list, axis=0)
-
-        if not np.isnan(np.average(point_list)):
-            minx_idx = np.argmin(point_list[:, 0])
-            minx_idx_coord = point_list[minx_idx]
-            tip_coord = np.array([[int(minx_idx_coord[1]), int(minx_idx_coord[0])]])
-
-        else:
-            tip_coord = avg
-
-        return tip_coord
+        self.contour_coord_avg = np.average(self.contour_coord_list, axis = 0)
 
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
 

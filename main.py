@@ -24,6 +24,9 @@ from pvcam import PVCAM
 from image_window import Image_window
 from image_process import Image_process
 
+from tip_search_hist import hist_top_coord, get_tip_coord
+
+
 def main():
 
     print('-----MAIN-----')
@@ -51,6 +54,7 @@ def main():
     print('-----Camera-----')
 
     cam = PVCAM()
+    print(cam.size)
 
     #This is the image Window, not the Camera, nor the image frame
     global img_wnd
@@ -79,7 +83,17 @@ def main():
             img_wnd.click_coord_update()
 
             img_proc.contour(img_wnd.frame)
-            print(img_proc.contours_2_coord_list())
+            img_proc.contours_2_coord_list()
+            print(img_proc.contour_coord_list)
+            print(img_proc.contour_coord_avg)
+
+            tip_coord = get_tip_coord(img_proc.contour_coord_list, img_proc.contour_coord_avg)
+            print(f"tip = {tip_coord}")
+
+            if not np.isnan(np.average(tip_coord)):
+                tip_coord_list = np.append(tip_coord_list, tip_coord, axis = 0)
+
+            tip_coord_most, *_ = hist_top_coord(np.append(tip_coord_list[:, 1], tip_coord_list[:, 0], axis = 1), 10)
 
 
         # Exit if img_wnd thread killed
