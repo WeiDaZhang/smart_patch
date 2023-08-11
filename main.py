@@ -58,7 +58,7 @@ def main():
 
     #This is the image Window, not the Camera, nor the image frame
     global img_wnd
-    img_wnd = Image_window(size = (1024, 1376))
+    img_wnd = Image_window(size = cam.size)
 
     img_wnd.set_live_thread()
     img_wnd.thread.start()
@@ -84,15 +84,28 @@ def main():
             img_proc = Image_process(img_wnd.frame, slicescope)
 
             img_proc.contour()
-            img_proc.contours_2_coord_list()
+            #print(np.max(img_proc.edge))
+            #img_n_wnd = Image_window(name = 'edge', size = cam.size)
+            #img_n_wnd.set_bw_frame(img_proc.edge)
+            #img_n_wnd.show_live()
+            #img_wnd.overlay = img_proc.edge
+
+            #img_proc.contours_2_coord_list()
             print(f'Coordinates of Contours: {img_proc.contour_coord_list}')
             print(f'Average coordinate of Contours: {img_proc.contour_coord_avg}')
 
-            tip_coord = get_tip_coord(img_proc.contour_coord_list, img_proc.contour_coord_avg)
-            print(f"tip = {tip_coord}")
+            #tip_coord = get_tip_coord(img_proc.contour_coord_list, img_proc.contour_coord_avg)
+            #print(f"tip = {tip_coord}")
             
             img_proc.hough_lines()
             print(img_proc.hough_line_list)
+            for index in range(0,len(img_proc.hough_line_list)):
+
+                cv.line(img_wnd.overlay,(img_proc.hough_line_list[index][0][0],
+                                     img_proc.hough_line_list[index][0][1]),
+                                     (img_proc.hough_line_list[index][0][2],
+                                      img_proc.hough_line_list[index][0][3]), 255, 1, cv.LINE_AA)
+
 
 
         # Exit if img_wnd thread killed

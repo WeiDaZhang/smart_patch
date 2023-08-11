@@ -154,7 +154,7 @@ def hist_top_coord(coord_list, resolution = 10):
     return top_coord_list[0,:], top_coord_chance[0], top_coord_list[1:-1,:], top_coord_chance[1:-1]
         
 
-def get_tip_coord(coord_list, coord_avg)
+def get_tip_coord(coord_list, coord_avg):
     if not np.isnan(coord_avg):
         minx_idx = np.argmin(coord_list[:, 0])
         minx_idx_coord = coord_list[minx_idx]
