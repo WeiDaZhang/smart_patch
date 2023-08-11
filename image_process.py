@@ -15,52 +15,66 @@ from pyvcam import pvc
 from pyvcam.camera import Camera
 from pyvcam import constants
 
-
-class Image_process:
+class Image_frame:
 
     # Class parameter
 
     # Instance method
-    def __init__(self, input_image, slicescope_instance):
-        self.slicescope_instance = slicescope_instance
+    def __init__(self, input_image):
         self.frame = input_image
         self.edge = []
         self.contours = []
         self.contour_hierarchy = []
         self.contour_coord_list = np.empty(shape = [0, 2])
         self.contour_coord_avg = np.empty(shape = [0, 2])
-        self.hough_line_list = np.empty(shape = [0, 3])
+        self.hough_lines_p_list = np.empty(shape = [0, 2])
+
+    def description(self):
+        return "Image Frame"
+
+
+class Image_process:
+
+    # Class parameter
+
+    # Instance method
+    def __init__(self, slicescope_instance):
+        self.slicescope_instance = slicescope_instance
+        self.frame_list = []
 
     def description(self):
         return "Image Processing Functions"
 
+    def load_frame(self, frame):
+        self.frame_list.append(Image_frame(frame))
+
     def contour(self):
 
         # Find Canny edges
-        self.edge = cv.Canny(self.frame, 30, 200)
+        self.frame_list[-1].edge = cv.Canny(self.frame_list[-1], 30, 200)
   
         # Finding Contours
         # Use a copy of the image e.g. edged.copy()
         # since findContours alters the image
-        contours, hierarchy = cv.findContours(self.edge, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+        contours, hierarchy = cv.findContours(self.frame_list[-1].edge, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
   
         print("______")
   
         print("Number of Contours found = " + str(len(contours)))
   
-        self.contours = contours
-        self.contour_hierarchy = hierarchy
+        self.frame_list[-1].contours = contours
+        self.frame_list[-1].contour_hierarchy = hierarchy
 
     def contours_2_coord_list(self):
         # Squash contour to a list of coordinates
-        for contour in self.contours:
+        for contour in self.frame_list[-1].contours:
             for point in contour:
-                self.contour_coord_list = np.append(self.contour_coord_list, point, axis = 0)
+                self.frame_list[-1].contour_coord_list = np.append(self.frame_list[-1].contour_coord_list, point, axis = 0)
 
-        self.contour_coord_avg = np.average(self.contour_coord_list, axis = 0)
+        self.frame_list[-1].contour_coord_avg = np.average(self.frame_list[-1].contour_coord_list, axis = 0)
 
     def hough_lines(self, rho = 1, theta = np.pi / 180, min_votes = 20):
-        self.hough_line_list = cv.HoughLinesP(self.edge, rho, theta, min_votes, None, 150, 50)
+        self.frame_list[-1].hough_line_list = cv.HoughLinesP(self.frame_list[-1].edge, rho, theta, min_votes, None, 150, 50)
 
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
 

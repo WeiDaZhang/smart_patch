@@ -54,7 +54,6 @@ def main():
     print('-----Camera-----')
 
     cam = PVCAM()
-    print(f'CAM Sensor Size = {cam.size}')
 
     #This is the image Window, not the Camera, nor the image frame
     global img_wnd
@@ -67,6 +66,8 @@ def main():
     img_wnd.wait_window_ready()
     img_wnd.set_mouse_response()
 
+
+    img_proc = Image_process(slicescope)
 
     while True:
         # Generate random pixel map at a rate
@@ -81,21 +82,12 @@ def main():
             print(f'Click Coordinate = {img_wnd.click_coord}')
             img_wnd.click_coord_update()
 
-            img_proc = Image_process(img_wnd.frame, slicescope)
-
+            img_proc.load_frame(img_wnd.frame)
             img_proc.contour()
-            #print(np.max(img_proc.edge))
-            #img_n_wnd = Image_window(name = 'edge', size = cam.size)
-            #img_n_wnd.set_bw_frame(img_proc.edge)
-            #img_n_wnd.show_live()
-            #img_wnd.overlay = img_proc.edge
 
-            #img_proc.contours_2_coord_list()
+            img_proc.contours_2_coord_list()
             print(f'Coordinates of Contours: {img_proc.contour_coord_list}')
             print(f'Average coordinate of Contours: {img_proc.contour_coord_avg}')
-
-            #tip_coord = get_tip_coord(img_proc.contour_coord_list, img_proc.contour_coord_avg)
-            #print(f"tip = {tip_coord}")
             
             img_proc.hough_lines()
             print(img_proc.hough_line_list)
