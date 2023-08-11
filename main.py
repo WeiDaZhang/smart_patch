@@ -67,36 +67,43 @@ def main():
     img_wnd.set_mouse_response()
 
 
+    global hough_wnd
+    hough_wnd = Image_window(title = 'Hough Image', size = (1024, 1024))
+
+    hough_wnd.set_live_thread()
+    hough_wnd.thread.start()
+
     img_proc = Image_process(slicescope)
 
     while True:
         # Generate random pixel map at a rate
-        img_wnd.set_bw_frame(cam.get_frame())
+        img_wnd.frame = cam.get_frame()
 
         time.sleep(0.1)
 
         # If clicked a new coordinate, draw circle, and update coordinate
         if not img_wnd.click_coord == img_wnd.previous_click_coord:
             img_wnd.clear_overlay()
-            img_wnd.overlay = cv.circle(img_wnd.overlay, img_wnd.click_coord, 10, 0, 3)
+            img_wnd.add_overlay(cv.circle(img_wnd.overlay, img_wnd.click_coord, 10, 0, 3))
             print(f'Click Coordinate = {img_wnd.click_coord}')
             img_wnd.click_coord_update()
 
             img_proc.load_frame(img_wnd.frame)
             img_proc.contour()
+            img_wnd.add_overlay(img_proc.img_list[-1].edge)
 
             img_proc.contours_2_coord_list()
-            print(f'Coordinates of Contours: {img_proc.contour_coord_list}')
-            print(f'Average coordinate of Contours: {img_proc.contour_coord_avg}')
+            print(f'Coordinates of Contours: {img_proc.img_list[-1].contour_coord_list}')
+            print(f'Average coordinate of Contours: {img_proc.img_list[-1].contour_coord_avg}')
             
             img_proc.hough_lines()
-            print(img_proc.hough_line_list)
-            for index in range(0,len(img_proc.hough_line_list)):
-
-                cv.line(img_wnd.overlay,(img_proc.hough_line_list[index][0][0],
-                                     img_proc.hough_line_list[index][0][1]),
-                                     (img_proc.hough_line_list[index][0][2],
-                                      img_proc.hough_line_list[index][0][3]), 255, 1, cv.LINE_AA)
+            hough_wnd.frame = img_proc.point_list_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
+            print(img_proc.img_list[-1].houghline_rhotheta_list)
+            #for index in range(0,len(img_proc.img_list[-1].hough_line_list)):
+            #    cv.line(img_wnd.overlay,(img_proc.img_list[-1].hough_line_list[index][0][0],
+            #                         img_proc.img_list[-1].hough_line_list[index][0][1]),
+            #                         (img_proc.img_list[-1].hough_line_list[index][0][2],
+            #                          img_proc.img_list[-1].hough_line_list[index][0][3]), 0, 1, cv.LINE_AA)
 
 
 

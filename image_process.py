@@ -15,7 +15,7 @@ from pyvcam import pvc
 from pyvcam.camera import Camera
 from pyvcam import constants
 
-class Image_frame:
+class Image_object:
 
     # Class parameter
 
@@ -26,11 +26,12 @@ class Image_frame:
         self.contours = []
         self.contour_hierarchy = []
         self.contour_coord_list = np.empty(shape = [0, 2])
-        self.contour_coord_avg = np.empty(shape = [0, 2])
-        self.hough_lines_p_list = np.empty(shape = [0, 2])
+        self.contour_coord_avg = []
+        self.houghline_p_list = []
+        self.houghline_rhotheta_list = []
 
     def description(self):
-        return "Image Frame"
+        return "Image Object"
 
 
 class Image_process:
@@ -40,41 +41,57 @@ class Image_process:
     # Instance method
     def __init__(self, slicescope_instance):
         self.slicescope_instance = slicescope_instance
-        self.frame_list = []
+        self.img_list = []
 
     def description(self):
         return "Image Processing Functions"
 
     def load_frame(self, frame):
-        self.frame_list.append(Image_frame(frame))
+        self.img_list.append(Image_object(frame))
 
     def contour(self):
 
         # Find Canny edges
-        self.frame_list[-1].edge = cv.Canny(self.frame_list[-1], 30, 200)
+        self.img_list[-1].edge = cv.Canny(self.img_list[-1].frame, 30, 200)
   
         # Finding Contours
         # Use a copy of the image e.g. edged.copy()
         # since findContours alters the image
-        contours, hierarchy = cv.findContours(self.frame_list[-1].edge, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+        contours, hierarchy = cv.findContours(self.img_list[-1].edge, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
   
         print("______")
   
         print("Number of Contours found = " + str(len(contours)))
   
-        self.frame_list[-1].contours = contours
-        self.frame_list[-1].contour_hierarchy = hierarchy
+        self.img_list[-1].contours = contours
+        self.img_list[-1].contour_hierarchy = hierarchy
 
     def contours_2_coord_list(self):
         # Squash contour to a list of coordinates
-        for contour in self.frame_list[-1].contours:
+        for contour in self.img_list[-1].contours:
             for point in contour:
-                self.frame_list[-1].contour_coord_list = np.append(self.frame_list[-1].contour_coord_list, point, axis = 0)
+                self.img_list[-1].contour_coord_list = np.append(self.img_list[-1].contour_coord_list, point, axis = 0)
 
-        self.frame_list[-1].contour_coord_avg = np.average(self.frame_list[-1].contour_coord_list, axis = 0)
+        self.img_list[-1].contour_coord_avg = np.average(self.img_list[-1].contour_coord_list, axis = 0)
 
-    def hough_lines(self, rho = 1, theta = np.pi / 180, min_votes = 20):
-        self.frame_list[-1].hough_line_list = cv.HoughLinesP(self.frame_list[-1].edge, rho, theta, min_votes, None, 150, 50)
+    def hough_lines(self, rho = 1, theta = np.pi / 180 / 10, min_votes = 1):
+        #self.img_list[-1].hough_line_list = cv.HoughLinesP(self.img_list[-1].edge, rho, theta, min_votes, None, 150, 50)
+        hough_line_list = cv.HoughLines(self.img_list[-1].edge, rho, theta, min_votes)
+        self.img_list[-1].houghline_rhotheta_list = np.reshape(hough_line_list, (len(hough_line_list),2))
+
+    def point_list_2_frame(self, point_list, size = (1024, 1024), scale_points = True):
+        frame = np.zeros(shape = size)
+        if scale_points:
+            scale = [1, 1]
+            point_list[:, 0] = point_list[:, 0] - np.min(point_list[:, 0])
+            point_list[:, 1] = point_list[:, 1] - np.min(point_list[:, 1])
+            scale[0] = (size[0] - 1) / np.max(point_list[:, 0])
+            scale[1] = (size[1] - 1) / np.max(point_list[:, 1])
+            point_list[:, 0] = point_list[:, 0] * scale[0]
+            point_list[:, 1] = point_list[:, 1] * scale[1]
+        for idx in range(0, len(point_list)):
+            frame[np.floor(point_list[idx, 0]).astype(int), np.floor(point_list[idx, 1]).astype(int)] += 1
+        return frame
 
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
 
