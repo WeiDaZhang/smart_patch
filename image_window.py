@@ -61,10 +61,10 @@ class Image_window:
     def clear_overlay(self):
         self.overlay = np.ones(self.size)
 
-    def add_overlay(self, overlay, inverse = True):
-        overlay = overlay - np.min(overlay)
-        overlay = overlay / np.max(overlay)
+    def add_overlay(self, input_overlay, inverse = True):
+        input_overlay = input_overlay - np.min(input_overlay)
+        input_overlay = input_overlay / np.max(input_overlay)
         if inverse:
-            overlay = np.max(overlay) - overlay
-        self.overlay += overlay
+            input_overlay = np.max(input_overlay) - input_overlay
+        self.overlay += input_overlay
         self.overlay = self.overlay / np.max(self.overlay)

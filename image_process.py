@@ -74,14 +74,14 @@ class Image_process:
 
         self.img_list[-1].contour_coord_avg = np.average(self.img_list[-1].contour_coord_list, axis = 0)
 
-    def hough_lines(self, rho = 0.1, theta = np.pi / 180 / 100, min_votes = 10):
+    def hough_lines(self, rho = 1, theta = np.pi / 180 / 10, min_votes = 1):
         #self.img_list[-1].hough_line_list = cv.HoughLinesP(self.img_list[-1].edge, rho, theta, min_votes, None, 150, 50)
-        hough_line_list = cv.HoughLines(self.img_list[-1].edge, rho, theta, min_votes)
+        hough_line_list = cv.HoughLines(self.img_list[-1].edge, rho, theta, min_votes, None, 100, 100)
         self.img_list[-1].houghline_rhotheta_list = np.reshape(hough_line_list, (len(hough_line_list),2))
 
     def scale_points_2_frame(self, point_list, size = (1024, 1024)):
         scale = [1, 1]
-        offset = [np.min(point_list[:, 0], np.min(point_list[:, 1]]
+        offset = [np.min(point_list[:, 0]), np.min(point_list[:, 1])]
         point_list[:, 0] = point_list[:, 0] - np.min(point_list[:, 0])
         point_list[:, 1] = point_list[:, 1] - np.min(point_list[:, 1])
         scale[0] = (size[0] - 1) / np.max(point_list[:, 0])
@@ -93,7 +93,7 @@ class Image_process:
     def point_list_2_frame(self, point_list, size = (1024, 1024), scale_points = True):
         frame = np.zeros(shape = size)
         if scale_points:
-            point_list = scale_points_2_frame(point_list, size)[0]
+            point_list = self.scale_points_2_frame(point_list, size)[0]
         for idx in range(0, len(point_list)):
             frame[np.floor(point_list[idx, 0]).astype(int), np.floor(point_list[idx, 1]).astype(int)] += 1
         return frame

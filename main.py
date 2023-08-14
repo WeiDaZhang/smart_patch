@@ -84,24 +84,24 @@ def main():
         # If clicked a new coordinate, draw circle, and update coordinate
         if not img_wnd.click_coord == img_wnd.previous_click_coord:
             img_wnd.clear_overlay()
-            img_wnd.add_overlay(cv.circle(img_wnd.overlay, img_wnd.click_coord, 10, 0, 3))
+            img_wnd.add_overlay(cv.circle(np.ones(img_wnd.size), img_wnd.click_coord, 10, 0, 3))
             print(f'Click Coordinate = {img_wnd.click_coord}')
             img_wnd.click_coord_update()
 
-            img_proc.load_frame(img_wnd.frame)
-            img_proc.contour()
-            img_wnd.add_overlay(img_proc.img_list[-1].edge)
+            #img_proc.load_frame(img_wnd.frame)
+            #img_proc.contour()
+            #img_wnd.add_overlay(img_proc.img_list[-1].edge)
 
-            img_proc.contours_2_coord_list()
-            print(f'Coordinates of Contours: {img_proc.img_list[-1].contour_coord_list}')
-            print(f'Average coordinate of Contours: {img_proc.img_list[-1].contour_coord_avg}')
+            #img_proc.contours_2_coord_list()
+            #print(f'Coordinates of Contours: {img_proc.img_list[-1].contour_coord_list}')
+            #print(f'Average coordinate of Contours: {img_proc.img_list[-1].contour_coord_avg}')
             
-            img_proc.hough_lines()
-            hough_wnd.frame = img_proc.point_list_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
-            print(img_proc.img_list[-1].houghline_rhotheta_list)
+            #img_proc.hough_lines()
+            #hough_wnd.frame = img_proc.point_list_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
+            #print(img_proc.img_list[-1].houghline_rhotheta_list)
 
-            hough_wnd.frame = cv.line(np.zeros(shape = hough_wnd.size),img_wnd.click_coord, (0,hough_wnd.size[1]),255,1,cv.LINE_AA)
-            hough_wnd.frame = cv.line(hough_wnd.frame,img_wnd.click_coord, (hough_wnd.size[0],hough_wnd.size[1]),255,1,cv.LINE_AA)
+            hough_wnd.frame = cv.line(np.zeros(shape = hough_wnd.size),img_wnd.click_coord, (0,hough_wnd.size[0]),255,1,cv.LINE_AA)
+            hough_wnd.frame = cv.line(hough_wnd.frame,img_wnd.click_coord, (hough_wnd.size[1],hough_wnd.size[0]),255,1,cv.LINE_AA)
 
             img_proc.load_frame(hough_wnd.frame)
             img_proc.img_list[-1].edge = np.uint8(img_proc.img_list[-1].frame)
@@ -110,12 +110,13 @@ def main():
             hough_wnd.frame = img_proc.point_list_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
 
             rhotheta_list, rhotheta_scale, thotheta_offset = img_proc.scale_points_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
-            rhotheta_list = np.int(rhotheta_list)
+            rhotheta_list = np.int32(rhotheta_list)
             rhotheta_hists = hist_top_coord(rhotheta_list, resolution = 3)
-            hough_wnd.add_overlay(cv.circle(hough_wnd.overlay, rhotheta_hists[0], 10, 1, 3))
-            
-            rhotheta_hists[0] = rhotheta_hists[0] / rhotheta_scale + thotheta_offset
-            print(rhotheta_hists)
+            hough_wnd.clear_overlay()
+            hough_wnd.add_overlay(cv.circle(np.ones(hough_wnd.size), np.int32((rhotheta_hists[0][1],rhotheta_hists[0][0])), 10, 0, 3))
+            #hough_wnd.add_overlay(cv.circle(np.ones(hough_wnd.size), np.int32(rhotheta_hists[0]), 10, 0, 3))
+            #rhotheta_hists[0] = rhotheta_hists[0] / rhotheta_scale + thotheta_offset
+            #print(rhotheta_hists)
             
             #for index in range(0,len(img_proc.img_list[-1].hough_line_list)):
             #    cv.line(img_wnd.overlay,(img_proc.img_list[-1].hough_line_list[index][0][0],
