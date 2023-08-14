@@ -74,7 +74,7 @@ class Image_process:
 
         self.img_list[-1].contour_coord_avg = np.average(self.img_list[-1].contour_coord_list, axis = 0)
 
-    def hough_lines(self, rho = 1, theta = np.pi / 180 / 10, min_votes = 1):
+    def hough_lines(self, rho = 0.1, theta = np.pi / 180 / 100, min_votes = 10):
         #self.img_list[-1].hough_line_list = cv.HoughLinesP(self.img_list[-1].edge, rho, theta, min_votes, None, 150, 50)
         hough_line_list = cv.HoughLines(self.img_list[-1].edge, rho, theta, min_votes)
         self.img_list[-1].houghline_rhotheta_list = np.reshape(hough_line_list, (len(hough_line_list),2))

@@ -68,7 +68,7 @@ def main():
 
 
     global hough_wnd
-    hough_wnd = Image_window(title = 'Hough Image', size = (1024, 1024))
+    hough_wnd = Image_window(title = 'Hough Image', size = cam.size)
 
     hough_wnd.set_live_thread()
     hough_wnd.thread.start()
@@ -99,6 +99,15 @@ def main():
             img_proc.hough_lines()
             hough_wnd.frame = img_proc.point_list_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
             print(img_proc.img_list[-1].houghline_rhotheta_list)
+
+            hough_wnd.frame = cv.line(np.zeros(shape = hough_wnd.size),img_wnd.click_coord, (0,hough_wnd.size[1]),255,1,cv.LINE_AA)
+            hough_wnd.frame = cv.line(hough_wnd.frame,img_wnd.click_coord, (hough_wnd.size[0],hough_wnd.size[1]),255,1,cv.LINE_AA)
+
+            img_proc.load_frame(hough_wnd.frame)
+            img_proc.img_list[-1].edge = np.uint8(img_proc.img_list[-1].frame)
+            print(np.max(img_proc.img_list[-1].edge))
+            img_proc.hough_lines()
+            hough_wnd.frame = img_proc.point_list_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
             #for index in range(0,len(img_proc.img_list[-1].hough_line_list)):
             #    cv.line(img_wnd.overlay,(img_proc.img_list[-1].hough_line_list[index][0][0],
             #                         img_proc.img_list[-1].hough_line_list[index][0][1]),
