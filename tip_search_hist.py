@@ -151,7 +151,8 @@ def hist_top_coord(coord_list, resolution = 10):
     top_coord_list = coord_org + centre_idn_list
     top_coord_chance = centre_idn_occur_list/all_cum_idn_cnt
     print(f'Top Histogram Coordinate List: {top_coord_list}')
-    return top_coord_list[0,:], top_coord_chance[0], top_coord_list[1:-1,:], top_coord_chance[1:-1]
+    #return top_coord_list[0,:], top_coord_chance[0], top_coord_list[1:-1,:], top_coord_chance[1:-1]
+    return top_coord_list, top_coord_chance
         
 
 def get_tip_coord(coord_list, coord_avg):

@@ -7,13 +7,9 @@ Created on Wed August 9 12:23:00 2023
 Bioptix Ltd.
 
 """
-
+from itertools import combinations
 import cv2 as cv
 import numpy as np
-
-from pyvcam import pvc
-from pyvcam.camera import Camera
-from pyvcam import constants
 
 class Image_object:
 
@@ -77,6 +73,7 @@ class Image_process:
     def hough_lines(self, rho = 1, theta = np.pi / 180 / 10, min_votes = 1):
         #self.img_list[-1].hough_line_list = cv.HoughLinesP(self.img_list[-1].edge, rho, theta, min_votes, None, 150, 50)
         hough_line_list = cv.HoughLines(self.img_list[-1].edge, rho, theta, min_votes, None, 100, 100)
+        # HoughLines returns n x 1 x 2 matrix, reduce (reshape) to n x 2
         self.img_list[-1].houghline_rhotheta_list = np.reshape(hough_line_list, (len(hough_line_list),2))
 
     def scale_points_2_frame(self, point_list, size = (1024, 1024)):
@@ -90,13 +87,49 @@ class Image_process:
         point_list[:, 1] = point_list[:, 1] * scale[1]
         return point_list, scale, offset
 
-    def point_list_2_frame(self, point_list, size = (1024, 1024), scale_points = True):
+    def point_list_2_frame(self, point_list, size = (1024, 1024)):
         frame = np.zeros(shape = size)
-        if scale_points:
-            point_list = self.scale_points_2_frame(point_list, size)[0]
         for idx in range(0, len(point_list)):
             frame[np.floor(point_list[idx, 0]).astype(int), np.floor(point_list[idx, 1]).astype(int)] += 1
         return frame
+
+    def frame_2_point_list(self, frame, contrast = 0.5):
+        frame = frame - np.min(frame)
+        frame = frame / np.max(frame)
+        point_list = np.empty(shape = (0, 2))
+        for idx_row in range(0, frame.shape[0]):
+            for idx_col in range(0, frame.shape[1]):
+                if frame[idx_row, idx_col] > contrast:
+                    point_list = np.append(point_list, [[idx_row, idx_col]], axis = 0)
+        return point_list
+        
+
+    def cartToPolar(self, coord_list, angleInDegress = False):
+        mag = np.sqrt(np.square(coord_list[:, 0]) + np.square(coord_list[:, 1]))
+        # matrix-row = y
+        # matrix-col = x
+        ang = np.arctan2(coord_list[:, 0], coord_list[:, 1])
+        if angleInDegress:
+            ang = ang / np.pi * 180 
+        return np.column_stack((mag.T, ang.T))
+
+    def hough_2_point_lines(self, rho_theta_list):
+        rho_theta_2_point_list = combinations(rho_theta_list, 2)
+        cross_rho_theta_list = np.empty(shape = (0, 2))
+        for rho_theta_2_point in list(rho_theta_2_point_list):
+            #input(rho_theta_2_point)
+            actan_nominator = rho_theta_2_point[0][0]*np.sin(-rho_theta_2_point[0][1]) - rho_theta_2_point[1][0]*np.sin(-rho_theta_2_point[1][1])
+            actan_denominator = rho_theta_2_point[0][0]*np.cos(-rho_theta_2_point[0][1]) - rho_theta_2_point[1][0]*np.cos(-rho_theta_2_point[1][1])
+            if actan_denominator == 0:
+                continue
+            cross_theta = np.pi/2 - np.arctan(actan_nominator / actan_denominator)
+            cross_rho = rho_theta_2_point[0][0]*np.cos(cross_theta - rho_theta_2_point[0][1])
+            cross_rho_theta_list = np.append(cross_rho_theta_list, [[cross_rho, cross_theta]], axis = 0)
+            #print([cross_rho, cross_theta])
+            #if len(cross_rho_theta_list) > 10:
+            #    break
+        self.img_list[-1].houghline_rhotheta_list = cross_rho_theta_list
+        return cross_rho_theta_list
 
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
 
