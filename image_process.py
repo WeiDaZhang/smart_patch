@@ -102,7 +102,6 @@ class Image_process:
                 if frame[idx_row, idx_col] > contrast:
                     point_list = np.append(point_list, [[idx_row, idx_col]], axis = 0)
         return point_list
-        
 
     def cartToPolar(self, coord_list, angleInDegress = False):
         mag = np.sqrt(np.square(coord_list[:, 0]) + np.square(coord_list[:, 1]))
@@ -130,6 +129,21 @@ class Image_process:
             #    break
         self.img_list[-1].houghline_rhotheta_list = cross_rho_theta_list
         return cross_rho_theta_list
+
+    def hist_2d_coord(self, coord_list, size = (1024, 1024), resolution = 10):
+        coord_list = np.array(coord_list)
+        print(f"Coordinate List: \n{coord_list}")
+        
+        hist_bins = np.array([np.ceil(size[0]/resolution), np.ceil(size[1]/resolution)]).astype(int)
+        # Histogram2d input: x first, y second, output: row = x, col = y
+        coord_hist_T, coord_edge_x, coord_edge_y = np.histogram2d(coord_list[:, 1],   # second column in coorinate list is x
+                                                                coord_list[:, 0],   # first column in coorinate list is y
+                                                                hist_bins)
+        #print(f"hist: {coord_hist}")
+        #print(f"edge x: {coord_edge_x}")
+        #print(f"edge y: {coord_edge_y}")
+            
+        return coord_hist_T.T
 
     def autofocus(self,slicescope_x,slicescope_y,slicescope_z):
 
