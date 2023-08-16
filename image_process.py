@@ -113,22 +113,36 @@ class Image_process:
         return np.column_stack((mag.T, ang.T))
 
     def hough_2_point_lines(self, rho_theta_list):
-        rho_theta_2_point_list = combinations(rho_theta_list, 2)
-        cross_rho_theta_list = np.empty(shape = (0, 2))
-        for rho_theta_2_point in list(rho_theta_2_point_list):
-            #input(rho_theta_2_point)
-            actan_nominator = rho_theta_2_point[0][0]*np.sin(-rho_theta_2_point[0][1]) - rho_theta_2_point[1][0]*np.sin(-rho_theta_2_point[1][1])
-            actan_denominator = rho_theta_2_point[0][0]*np.cos(-rho_theta_2_point[0][1]) - rho_theta_2_point[1][0]*np.cos(-rho_theta_2_point[1][1])
-            if actan_denominator == 0:
-                continue
-            cross_theta = np.pi/2 - np.arctan(actan_nominator / actan_denominator)
-            cross_rho = rho_theta_2_point[0][0]*np.cos(cross_theta - rho_theta_2_point[0][1])
-            cross_rho_theta_list = np.append(cross_rho_theta_list, [[cross_rho, cross_theta]], axis = 0)
-            #print([cross_rho, cross_theta])
-            #if len(cross_rho_theta_list) > 10:
-            #    break
-        self.img_list[-1].houghline_rhotheta_list = cross_rho_theta_list
-        return cross_rho_theta_list
+        sin_minus_theta_list = np.sin(-rho_theta_list[:, 1])
+        cos_minus_theta_list = np.cos(-rho_theta_list[:, 1])
+        rho_sin_product_list = rho_theta_list[:, 0] * sin_minus_theta_list
+        rho_cos_product_list = rho_theta_list[:, 0] * cos_minus_theta_list
+        combination_idx_list = np.stack(np.triu_indices(len(rho_theta_list), k=1), axis=-1)
+        actan_nominator = np.diff(rho_sin_product_list[combination_idx_list], axis = 1)
+        actan_denominator = np.diff(rho_cos_product_list[combination_idx_list], axis = 1)
+        actan_nonzero_idx_list = np.flatnonzero(actan_denominator)
+        cross_theta = np.pi/2 - np.arctan(actan_nominator[actan_nonzero_idx_list] / actan_denominator[actan_nonzero_idx_list])
+        rho_theta_combination_list = rho_theta_list[combination_idx_list[actan_nonzero_idx_list, 0], :]
+        cross_rho = rho_theta_combination_list[:, 0] * np.cos(cross_theta[:, 0] - rho_theta_combination_list[:, 1])
+        cross_rho.shape = (cross_rho.size, 1)
+        self.img_list[-1].houghline_rhotheta_list = np.column_stack((cross_rho, cross_theta))
+        
+        #rho_theta_2_point_list = combinations(rho_theta_list, 2)
+        #cross_rho_theta_list = np.empty(shape = (0, 2))
+        #for rho_theta_2_point in list(rho_theta_2_point_list):
+        #    #input(rho_theta_2_point)
+        #    actan_nominator = rho_theta_2_point[0][0]*np.sin(-rho_theta_2_point[0][1]) - rho_theta_2_point[1][0]*np.sin(-rho_theta_2_point[1][1])
+        #    actan_denominator = rho_theta_2_point[0][0]*np.cos(-rho_theta_2_point[0][1]) - rho_theta_2_point[1][0]*np.cos(-rho_theta_2_point[1][1])
+        #    if actan_denominator == 0:
+        #        continue
+        #    cross_theta = np.pi/2 - np.arctan(actan_nominator / actan_denominator)
+        #    cross_rho = rho_theta_2_point[0][0]*np.cos(cross_theta - rho_theta_2_point[0][1])
+        #    cross_rho_theta_list = np.append(cross_rho_theta_list, [[cross_rho, cross_theta]], axis = 0)
+        #    #print([cross_rho, cross_theta])
+        #    #if len(cross_rho_theta_list) > 10:
+        #    #    break
+        #self.img_list[-1].houghline_rhotheta_list = cross_rho_theta_list
+        #return cross_rho_theta_list
 
     def hist_2d_coord(self, coord_list, size = (1024, 1024), resolution = 10):
         coord_list = np.array(coord_list)

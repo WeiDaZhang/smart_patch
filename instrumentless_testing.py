@@ -63,8 +63,8 @@ def main():
             img_wnd.click_coord_update()
 
             # Generate some line segments in frame
-            img_wnd.frame = cv.line(np.zeros(shape = img_wnd.size),img_wnd.click_coord, (img_wnd.click_coord[0] + 50, img_wnd.click_coord[1] + 100), 255, 1, cv.LINE_AA)
-            img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] + 100, img_wnd.click_coord[1] + 50), 255, 1, cv.LINE_AA)
+            img_wnd.frame = cv.line(np.zeros(shape = img_wnd.size),img_wnd.click_coord, (img_wnd.click_coord[0] + 50, img_wnd.click_coord[1] + 500), 255, 1, cv.LINE_AA)
+            img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] + 500, img_wnd.click_coord[1] + 50), 255, 1, cv.LINE_AA)
             img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] + 5, img_wnd.click_coord[1] - 8), 255, 1, cv.LINE_AA)
             img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] - 7, img_wnd.click_coord[1] + 2), 255, 1, cv.LINE_AA)
 
@@ -76,6 +76,7 @@ def main():
             edge_polar_list = img_proc.cartToPolar(edge_coord_list)
             # Analytical Hough Line Search
             img_proc.hough_2_point_lines(edge_polar_list)
+            
             
             # Draw hough space frame
             rhotheta_list, rhotheta_scale, thotheta_offset = img_proc.scale_points_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
