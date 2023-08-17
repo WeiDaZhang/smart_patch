@@ -20,7 +20,7 @@ import time
 from image_window import Image_window
 from image_process import Image_process
 
-from tip_search_hist import hist_top_coord, get_tip_coord
+from tip_search_hist import hist_top_coord, get_tip_coord, split_coord_list
 
 
 def main():
@@ -63,8 +63,8 @@ def main():
             img_wnd.click_coord_update()
 
             # Generate some line segments in frame
-            img_wnd.frame = cv.line(np.zeros(shape = img_wnd.size),img_wnd.click_coord, (img_wnd.click_coord[0] + 50, img_wnd.click_coord[1] + 500), 255, 1, cv.LINE_AA)
-            img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] + 500, img_wnd.click_coord[1] + 50), 255, 1, cv.LINE_AA)
+            img_wnd.frame = cv.line(np.zeros(shape = img_wnd.size),img_wnd.click_coord, (img_wnd.click_coord[0] + 50, img_wnd.click_coord[1] + 800), 255, 1, cv.LINE_AA)
+            img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] + 800, img_wnd.click_coord[1] + 50), 255, 1, cv.LINE_AA)
             img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] + 5, img_wnd.click_coord[1] - 8), 255, 1, cv.LINE_AA)
             img_wnd.frame = cv.line(img_wnd.frame,img_wnd.click_coord, (img_wnd.click_coord[0] - 7, img_wnd.click_coord[1] + 2), 255, 1, cv.LINE_AA)
 
@@ -72,6 +72,9 @@ def main():
             img_proc.load_frame(img_wnd.frame)
             img_proc.img_list[-1].edge = np.uint8(img_proc.img_list[-1].frame)
             edge_coord_list = img_proc.frame_2_point_list(img_proc.img_list[-1].edge)
+            
+            print(split_coord_list(edge_coord_list, 200))
+            input()
             # Get polar coordinates
             edge_polar_list = img_proc.cartToPolar(edge_coord_list)
             # Analytical Hough Line Search

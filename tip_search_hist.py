@@ -98,6 +98,19 @@ def search_centralized_coordinate(coord_list, radius):
     print(f'Distributed Coordinates: {dstr_coord_list}')
     return centre_coord, coord_list.shape[0], dstr_coord_list
 
+def split_coord_list(coord_list, max_len = 1000):
+    coord_cnt = len(coord_list)
+    for n_splt in range(1, 100):
+        if not coord_cnt / n_splt > max_len:
+            n_residual = coord_cnt % n_splt
+            break
+    if n_residual:
+        idx_list = np.hstack((np.arange(coord_cnt), np.ones(n_splt - n_residual) * coord_cnt))
+    else:
+        idx_list = np.arange(coord_cnt)
+    idx_list.shape = (np.ceil(coord_cnt / n_splt).astype(int), n_splt)
+    return idx_list
+
 def hist_top_coord(coord_list, resolution = 10):
     coord_list = np.array(coord_list)
     print(f"Coordinate List: {coord_list}")
