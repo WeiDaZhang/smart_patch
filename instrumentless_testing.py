@@ -20,7 +20,7 @@ import time
 from image_window import Image_window
 from image_process import Image_process
 
-from tip_search_hist import hist_top_coord, get_tip_coord, split_coord_list
+from tip_search_hist import hist_top_coord, get_tip_coord, split_index_list
 
 
 def main():
@@ -73,16 +73,19 @@ def main():
             img_proc.img_list[-1].edge = np.uint8(img_proc.img_list[-1].frame)
             edge_coord_list = img_proc.frame_2_point_list(img_proc.img_list[-1].edge)
             
-            print(split_coord_list(edge_coord_list, 200))
-            input()
-            # Get polar coordinates
-            edge_polar_list = img_proc.cartToPolar(edge_coord_list)
-            # Analytical Hough Line Search
-            img_proc.hough_2_point_lines(edge_polar_list)
+            edge_coord_list_stack = split_index_list(edge_coord_list, 200)
+            houghline_rhotheta_list = np.empty(shape = (0, 2))
+            for idx in range(edge_coord_list_stack.shape[1]):
+                print(edge_coord_list_stack[:, idx])
+                # Get polar coordinates
+                edge_polar_list = img_proc.cartToPolar(edge_coord_list[edge_coord_list_stack[:, idx], :])
+                # Analytical Hough Line Search
+                img_proc.hough_2_point_lines(edge_polar_list)
+                houghline_rhotheta_list = np.vstack((houghline_rhotheta_list, img_proc.img_list[-1].houghline_rhotheta_list))
             
             
             # Draw hough space frame
-            rhotheta_list, rhotheta_scale, thotheta_offset = img_proc.scale_points_2_frame(img_proc.img_list[-1].houghline_rhotheta_list, size = hough_wnd.size)
+            rhotheta_list, rhotheta_scale, thotheta_offset = img_proc.scale_points_2_frame(houghline_rhotheta_list, size = hough_wnd.size)
             hough_wnd.frame = img_proc.point_list_2_frame(rhotheta_list, size = hough_wnd.size)
 
             # Search Highlight Rho-Thetas
