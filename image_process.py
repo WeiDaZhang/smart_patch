@@ -10,6 +10,7 @@ Bioptix Ltd.
 from itertools import combinations
 import cv2 as cv
 import numpy as np
+#import array as arr
 
 class Image_object:
 
@@ -25,6 +26,7 @@ class Image_object:
         self.contour_coord_avg = []
         self.houghline_p_list = []
         self.houghline_rhotheta_list = []
+        self.houghline_intersect_list = []
 
     def description(self):
         return "Image Object"
@@ -75,6 +77,59 @@ class Image_process:
         hough_line_list = cv.HoughLines(self.img_list[-1].edge, rho, theta, min_votes, None, 100, 100)
         # HoughLines returns n x 1 x 2 matrix, reduce (reshape) to n x 2
         self.img_list[-1].houghline_rhotheta_list = np.reshape(hough_line_list, (len(hough_line_list),2))
+
+    def hough_lines_intersect(self, input_edges, rho=1, theta = np.pi / 180, line_vote_threshold = 200, min_line_length = 200, max_line_gap = 20):
+
+        blurred_img = cv.blur(input_edges,(5,5))
+        #cv.imshow('blur edges',blurred_img)
+        #cv.waitKey(0)
+        #thresh_inv = cv.threshold(blurred_img, 90, 255, cv.THRESH_BINARY_INV)[1]
+        #thresh_inv_edges = cv.Canny(thresh_inv, 30, 200)
+        #inverse_contours, inverse_hierarchy = cv.findContours(input_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+        linesP = cv.HoughLinesP(input_edges, rho, theta, line_vote_threshold, None, min_line_length, max_line_gap)
+
+        #linesP = cv.HoughLinesP(self.img_list[-1].edge, rho, theta, line_vote_threshold, min_line_length, max_line_gap)
+
+        #print("Houghlines P:")
+        #print(linesP)
+
+        P_list = []
+
+        if linesP is not None:
+            
+            for i in range(0,len(linesP)-1):
+                x1,y1,x2,y2 = linesP[i][0]
+                x3,y3,x4,y4 = linesP[i+1][0]
+
+                #print(f"x1={x1},y1={y1},x2={x2},y2={y2},")
+                #print(f"x3={x3},y3={y3},x4={x4},y4={y4},")
+
+                #Lines L1 and L2 
+                # L1: (x1,y1) and (x2,y2)
+                # L2: (x3,y3) and (x4,y4)
+            
+                denom = ((x1-x2)*(y3-y4)) - ((y1-y2)*(x3-x4))
+
+                if denom == 0:
+                    continue
+                else:
+                    Px_numer = (((x1*y2)-(y1*x2))*(x3-x4)) - ((x1-x2)*((x3*y4)-(y3*x4)))
+                    Py_numer = (((x1*y2)-(y1*x2))*(y3-y4)) - ((y1-y2)*((x3*y4)-(y3*x4)))
+
+                    Px = int(Px_numer/denom)
+                    Py = int(Py_numer/denom)
+
+                    P_list = np.append(P_list, [Px, Py], axis = 0)
+
+                    #print("Intersection List:")
+                    #print(P_list)
+
+        P_list = np.reshape(P_list,(-1,2))
+        P_list.astype(int)
+        #print(P_list)
+
+        return linesP,P_list
 
     def scale_points_2_frame(self, point_list, size = (1024, 1024)):
         scale = [1, 1]
