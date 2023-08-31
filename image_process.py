@@ -10,7 +10,7 @@ Bioptix Ltd.
 from itertools import combinations
 import cv2 as cv
 import numpy as np
-#import array as arr
+import random
 
 class Image_object:
 
@@ -80,16 +80,7 @@ class Image_process:
 
     def hough_lines_intersect(self, input_edges, rho=1, theta = np.pi / 180, line_vote_threshold = 200, min_line_length = 200, max_line_gap = 20):
 
-        blurred_img = cv.blur(input_edges,(5,5))
-        #cv.imshow('blur edges',blurred_img)
-        #cv.waitKey(0)
-        #thresh_inv = cv.threshold(blurred_img, 90, 255, cv.THRESH_BINARY_INV)[1]
-        #thresh_inv_edges = cv.Canny(thresh_inv, 30, 200)
-        #inverse_contours, inverse_hierarchy = cv.findContours(input_edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-
         linesP = cv.HoughLinesP(input_edges, rho, theta, line_vote_threshold, None, min_line_length, max_line_gap)
-
-        #linesP = cv.HoughLinesP(self.img_list[-1].edge, rho, theta, line_vote_threshold, min_line_length, max_line_gap)
 
         #print("Houghlines P:")
         #print(linesP)
@@ -102,8 +93,8 @@ class Image_process:
                 x1,y1,x2,y2 = linesP[i][0]
                 x3,y3,x4,y4 = linesP[i+1][0]
 
-                #print(f"x1={x1},y1={y1},x2={x2},y2={y2},")
-                #print(f"x3={x3},y3={y3},x4={x4},y4={y4},")
+                #print(f"x1={x1},y1={y1},x2={x2},y2={y2}")
+                #print(f"x3={x3},y3={y3},x4={x4},y4={y4}")
 
                 #Lines L1 and L2 
                 # L1: (x1,y1) and (x2,y2)
@@ -120,10 +111,11 @@ class Image_process:
                     Px = int(Px_numer/denom)
                     Py = int(Py_numer/denom)
 
-                    P_list = np.append(P_list, [Px, Py], axis = 0)
-
-                    #print("Intersection List:")
-                    #print(P_list)
+                    #Ensure all intersections are positive and within the camera coordinate system
+                    if (Px < 0) or (Py < 0):
+                        continue
+                    else:
+                        P_list = np.append(P_list, [Px, Py], axis = 0)
 
         P_list = np.reshape(P_list,(-1,2))
         P_list.astype(int)
@@ -252,3 +244,105 @@ class Image_process:
 
         return tip_coord_list
 
+    #K-means Cluster method
+    def k_means(self, data):
+
+        k_centroids = []
+
+        # Sample initial centroids of projected intersections
+        random_indices = random.sample(range( data.shape[0] ), len(data))
+        for i in random_indices:
+            k_centroids.append(data[i])
+
+        #print(k_centroids)
+
+        # Create a list to store which centroid is assigned to each dataset
+        assigned_k_centroids = [0]*len(data)
+
+        # Number of dimensions in centroid
+        num_centroid_dims = data.shape[1]
+
+        # List to store SSE for each iteration 
+        sse_list = []
+
+        # Loop over iterations
+        for n in range(10):
+
+            # Loop over each data point
+            for i in range( len(data) ):
+                x = data[i]
+
+                # Get the closest centroid
+                closest_centroid = self.get_closest_centroid(x, k_centroids)
+        
+                # Assign the centroid to the data point.
+                assigned_k_centroids[i] = closest_centroid
+
+            # Loop over k_centroids and compute the new ones.
+            for c in range( len(k_centroids) ):
+                # Get all the data points belonging to a particular cluster
+                cluster_data = [data[i] for i in range( len(data) ) if assigned_k_centroids[i] == c]
+    
+                if cluster_data == []:
+                    continue
+                else:
+                    # Initialise the list to hold the new centroid
+                    new_k_centroid = [0]*len(k_centroids[0])
+        
+                    # Compute the average of cluster members to compute new centroid
+                    # Loop over dimensions of data
+                    for dim in range( num_centroid_dims ):
+                        dim_sum = [ x[dim] for x in cluster_data ]
+                        dim_sum = sum(dim_sum) / len(dim_sum)
+                        new_k_centroid[dim] = dim_sum
+
+                # assign the new centroid
+                k_centroids[c] = new_k_centroid
+
+            # Compute the SSE for the iteration
+            sse = self.compute_sse(data, k_centroids, assigned_k_centroids)
+            sse_list.append(sse)
+
+        return k_centroids,sse_list
+
+    def compute_L2_distance(self, x, centroid):
+        dist = 0
+
+        # Loop over the dimensions. Take squared difference and add to dist 
+        for i in range(len(x)):
+            dist = dist + ( centroid[i] - x[i] )**2
+
+        return dist
+
+    def get_closest_centroid(self, x, centroids):
+        
+        centroid_distances = []
+
+        # Loop over each centroid and calculate the distance from each data point.
+        for centroid in centroids:
+            dist = self.compute_L2_distance(x, centroid)
+            centroid_distances.append(dist)
+
+        # Get the index of the centroid with the smallest distance to each data point 
+        closest_centroid_index =  min(range(len(centroid_distances)), key=lambda x: centroid_distances[x])
+
+        return closest_centroid_index
+    
+    def compute_sse(self, data, k_centroids, assigned_k_centroids): 
+        #Sum of Squared Errors (sse). Need to look for the elbow point to get the optimum number of iterations.
+        sse = 0
+    
+        # Compute the squared distance for each data point and add. 
+        for i,x in enumerate(data):
+    	    # Get the associated centroid for data point
+            centroid = k_centroids[assigned_k_centroids[i]]
+
+            # Compute the distance to the centroid
+            dist = self.compute_L2_distance(x, centroid)
+
+            # Add to the total distance
+            sse = sse + dist
+
+        sse = sse / len(data)
+
+        return sse

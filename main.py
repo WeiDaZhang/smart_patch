@@ -15,6 +15,8 @@ import numpy as np
 import cv2 as cv
 import threading
 import time
+import random
+import matplotlib.pyplot as plt
 
 #Classes
 from slicescope import Slicescope
@@ -65,13 +67,6 @@ def main():
     # Wait for image window ready
     img_wnd.wait_window_ready()
     img_wnd.set_mouse_response()
-
-
-    global hough_wnd
-    hough_wnd = Image_window(title = 'Hough Image', size = (512, 512))
-
-    hough_wnd.set_live_thread()
-    hough_wnd.thread.start()
 
     img_proc = Image_process(slicescope)
 
@@ -144,10 +139,27 @@ def main():
 
                 img_wnd.add_overlay(img_wnd.frame)
 
-                centroid_average = np.mean(centroid_list,axis=0)
-                print(centroid_average)
+                k_centroid_list,k_sse_list = img_proc.k_means(centroid_list)
 
-                arrow_pt_list = np.append(arrow_pt_list,[centroid_average[0],centroid_average[1]])
+                for k_point in k_centroid_list:
+                    k_x,k_y = k_point
+                    k_x = int(k_x) 
+                    k_y = int(k_y)
+                    dots = cv.circle(img_wnd.frame,(k_x,k_y),radius=10,color=(0,0,0),thickness=10)
+
+                img_wnd.add_overlay(dots)
+
+                #Plot to show SSE elbow point. 10 iterations might be too high.
+                #plt.figure()
+                #plt.xlabel("Iterations")
+                #plt.ylabel("SSE")
+                #plt.plot(range(len(k_sse_list)), k_sse_list)
+                #plt.show()
+                
+                k_centroid_list = np.reshape(k_centroid_list,[-1,2])
+                k_centroid_average = np.mean(k_centroid_list,axis=0)
+                
+                arrow_pt_list = np.append(arrow_pt_list,[k_centroid_average[0],k_centroid_average[1]])
                 print(f"avg centroid = {arrow_pt_list}")
 
             if img_proc.houghline_intersect_list is not None:
@@ -164,11 +176,33 @@ def main():
 
                 img_wnd.add_overlay(dots)    
 
-                projection_average = np.mean(projection_list,axis=0)
+                k_centroid_list,k_sse_list = img_proc.k_means(projection_list)
 
-                arrow_pt_list = np.append(arrow_pt_list,[projection_average[0],projection_average[1]])             
+                for k_point in k_centroid_list:
+                    k_x,k_y = k_point
+                    k_x = int(k_x) 
+                    k_y = int(k_y)
+                    dots = cv.circle(img_wnd.frame,(k_x,k_y),radius=10,color=(0,0,0),thickness=10)
+
+                img_wnd.add_overlay(dots)
+
+                #plt.figure()
+                #plt.xlabel("Iterations")
+                #plt.ylabel("SSE")
+                #plt.plot(range(len(k_sse_list)), k_sse_list)
+                #plt.show()
+
+                k_centroid_list = np.reshape(k_centroid_list,[-1,2])
+                k_centroid_average = np.mean(k_centroid_list,axis=0)
+                
+                arrow_pt_list = np.append(arrow_pt_list,[k_centroid_average[0],k_centroid_average[1]])
+
+                #projection_average = np.mean(projection_list,axis=0)
+                #arrow_pt_list = np.append(arrow_pt_list,[projection_average[0],projection_average[1]])             
 
             arrow_pt_list = np.reshape(arrow_pt_list,[-1,2])
+            print(f"Arrowed Line points = {arrow_pt_list}")
+
             start_point = (int(arrow_pt_list[0][0]), int(arrow_pt_list[0][1]))
             end_point = (int(arrow_pt_list[-1][0]), int(arrow_pt_list[-1][1]))
             img_wnd.frame = cv.arrowedLine(img_wnd.frame,start_point,end_point,(255,255,255),thickness=10)
@@ -190,13 +224,14 @@ def main():
             print(f"delta x = {delta_x}")
             print(f"delta y = {delta_y}")
 
+            
+            #Rough estimate of Quadrant location.
             #screen 1376 is in position 1 and is the X axis
             #screen 1024 is in position 0 and is the Y axis
 
             center_of_screen = [int(img_wnd.size[1]/2),int(img_wnd.size[0]/2)]
             print(f"center of screen = {center_of_screen}")
             print(f"x = {int(img_wnd.size[1])}, y={int(img_wnd.size[0])}")
-
 
             #identify the quadrant the end point/tip is located
             arrow_tip_x = int(arrow_pt_list[-1][0])
@@ -214,7 +249,7 @@ def main():
             if arrow_tip_x > center_of_screen[0] and arrow_tip_y > center_of_screen[1]:
                 print(f"arrow tip x = {arrow_tip_x}, arrow tip y = {arrow_tip_y}")
                 print("Quadrant 4 (+x,-y)")
-                
+
 
         # Exit if img_wnd thread killed
         if not img_wnd.thread.is_alive():
