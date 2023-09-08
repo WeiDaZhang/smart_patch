@@ -130,6 +130,8 @@ def main():
             #print(img_proc.houghline_p_list)
             #print(img_proc.houghline_intersect_list)
 
+            filtered_intersect_list = []
+
             if img_proc.houghline_p_list is not None:
 
                 for line in img_proc.houghline_p_list:
@@ -138,15 +140,29 @@ def main():
                     centroid_list = np.append(centroid_list,[x1,y1])
                     centroid_list = np.append(centroid_list,[x2,y2])
 
+                    #Exclude the projected points are on or near the HoughlinesP
+                    for point in img_proc.houghline_intersect_list:
+                        x3,y3 = point
+                        check = img_proc.is_between([x1,y1],[x3,y3],[x2,y2])
+
+                        if check == True:
+                            continue
+                        else:
+                            filtered_intersect_list = np.append(filtered_intersect_list,[x3,y3])
+
+                filtered_intersect_list = np.reshape(filtered_intersect_list,[-1,2])
+                #print(filtered_intersect_list)
+
                 centroid_list = np.reshape(centroid_list,[-1,2])
                 centroid_average = np.mean(centroid_list,axis=0)
 
                 arrow_pt_list = np.append(arrow_pt_list,[centroid_average[0],centroid_average[1]])
-                print(f"avg centroid = {arrow_pt_list}")
+                #print(f"avg centroid = {arrow_pt_list}")
 
-            if img_proc.houghline_intersect_list is not None:
-
-                for point in img_proc.houghline_intersect_list:
+            #if img_proc.houghline_intersect_list is not None:
+                #for point in img_proc.houghline_intersect_list:
+            if filtered_intersect_list is not None:
+                for point in filtered_intersect_list:
                     pt_x,pt_y = point
 
                     #x = img_wnd.size[1]
@@ -157,14 +173,14 @@ def main():
                         projection_list = np.append(projection_list,[pt_x,pt_y])
 
                         #Format the projected points to be drawn on the screen
-                        pt_x = int(pt_x)
-                        pt_y = int(pt_y)
-                        dots = cv.circle(img_wnd.frame,(pt_x,pt_y),radius=10,color=(0,0,0),thickness=10)
+                        #pt_x = int(pt_x)
+                        #pt_y = int(pt_y)
+                        #dots = cv.circle(img_wnd.frame,(pt_x,pt_y),radius=10,color=(0,0,0),thickness=10)
 
                 if not len(projection_list) == 0:
                     projection_list = np.reshape(projection_list,[-1,2])
 
-                    img_wnd.add_overlay(dots)
+                    #img_wnd.add_overlay(dots)
 
                     k_centroid_list,k_sse_list = img_proc.k_means(projection_list)
 
@@ -173,14 +189,16 @@ def main():
                         #Format and draw the k-means cluster points on the screen
                         k_x = int(k_x) 
                         k_y = int(k_y)
-                        dots = cv.circle(img_wnd.frame,(k_x,k_y),radius=10,color=(0,0,0),thickness=10)
+                        dots = cv.circle(img_wnd.frame,(k_x,k_y),radius=10,color=(255,255,255),thickness=10)
 
                         img_wnd.add_overlay(dots)
 
                     k_centroid_list = np.reshape(k_centroid_list,[-1,2])
                     k_centroid_average = np.mean(k_centroid_list,axis=0)
-                
-                    print(k_centroid_list)
+
+                    #List all of the projected intersection points
+                    #print("List of projected points")
+                    #print(k_centroid_list)
 
                     arrow_pt_list = np.append(arrow_pt_list,[k_centroid_average[0],k_centroid_average[1]])          
 

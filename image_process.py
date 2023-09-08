@@ -83,8 +83,14 @@ class Image_process:
 
         linesP = cv.HoughLinesP(input_edges, rho, theta, line_vote_threshold, None, min_line_length, max_line_gap)
 
-        #print("Houghlines P:")
-        #print(linesP)
+        print("Houghlines P:")
+        print(linesP)
+        #print(np.size(linesP))  #same
+        #print(linesP.size)      #same
+        #print(np.size(linesP[0]))  
+        #print(linesP[0].size)      #this is taking the ndarray and using the '.size' property
+
+        #linesP output is an ndarray that has n times 1x4 vectors. 1 ndarray = [ [[vector 1 (1x4)]]  [[vector 2 (1x4)]] ... ] 
 
         P_list = []
 
@@ -93,19 +99,21 @@ class Image_process:
             #initialize index for enumerate()
             idx=0
 
-            num_lines = range(0,np.size(linesP[0],1)-1)  #Total number of lines to compare minus one since the last line has no comparison.
-            print(f"number of lines = {np.size(linesP[0],1)}")
+            num_lines = int(linesP.size/linesP[0].size)
+            print(f"num lines = {num_lines}")
+            range_num_lines = range(0,num_lines-1)   #The total number of lines to compare minus one. The last line has no comparison.
 
-            #iterate over row dimension np.size(linesP,1)
-            for idx, j in enumerate(num_lines):
-                for k in num_lines[idx:]:
+            #iterate over row dimension np.size(linesP[0]) == linesP[0].size
+            for idx, j in enumerate(range_num_lines):
+                for k in range_num_lines[idx:]:
                     if k > idx:
                         x1,y1,x2,y2 = linesP[j][0]
                         x3,y3,x4,y4 = linesP[k][0]
                         #As noted above, the total number of lines to compare minus one. The last line has no comparison anyway.
 
-                        print(linesP[j][0])
-                        print(linesP[k][0])
+                        #print out all of the lines that will be compared.
+                        #print(linesP[j][0])
+                        #print(linesP[k][0])
 
                         #Lines L1 and L2 
                         # L1: (x1,y1) and (x2,y2)
@@ -129,6 +137,26 @@ class Image_process:
         #print(P_list)
 
         return linesP,P_list
+
+    def distance(self,a,b):
+        #Calculate the distance between 2 coordinates
+        #x1,y1 = a[0] a[1]
+        #x2,y2 = b[0] b[1]
+        
+        dist = np.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+        
+        return dist 
+
+    def is_between(self,a,c,b):
+
+        #check if self.distance(a,c) + self.distance(c,b) == self.distance(a,b)
+        tolerance = 100
+        check = self.distance(a,c) + self.distance(c,b)
+        
+        if check < self.distance(a,b)+tolerance:
+            return True
+        else:
+            return False
 
     def scale_points_2_frame(self, point_list, size = (1024, 1024)):
         scale = [1, 1]
