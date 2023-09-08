@@ -11,6 +11,7 @@ from itertools import combinations
 import cv2 as cv
 import numpy as np
 import random
+import itertools
 
 class Image_object:
 
@@ -88,34 +89,40 @@ class Image_process:
         P_list = []
 
         if linesP is not None:
+
+            #initialize index for enumerate()
+            idx=0
+
+            num_lines = range(0,np.size(linesP[0],1)-1)  #Total number of lines to compare minus one since the last line has no comparison.
+            print(f"number of lines = {np.size(linesP[0],1)}")
+
+            #iterate over row dimension np.size(linesP,1)
+            for idx, j in enumerate(num_lines):
+                for k in num_lines[idx:]:
+                    if k > idx:
+                        x1,y1,x2,y2 = linesP[j][0]
+                        x3,y3,x4,y4 = linesP[k][0]
+                        #As noted above, the total number of lines to compare minus one. The last line has no comparison anyway.
+
+                        print(linesP[j][0])
+                        print(linesP[k][0])
+
+                        #Lines L1 and L2 
+                        # L1: (x1,y1) and (x2,y2)
+                        # L2: (x3,y3) and (x4,y4)
             
-            for i in range(0,len(linesP)-1):
-                x1,y1,x2,y2 = linesP[i][0]
-                x3,y3,x4,y4 = linesP[i+1][0]
+                        denom = ((x1-x2)*(y3-y4)) - ((y1-y2)*(x3-x4))
 
-                #print(f"x1={x1},y1={y1},x2={x2},y2={y2}")
-                #print(f"x3={x3},y3={y3},x4={x4},y4={y4}")
+                        if not denom == 0:
+                            Px_numer = (((x1*y2)-(y1*x2))*(x3-x4)) - ((x1-x2)*((x3*y4)-(y3*x4)))
+                            Py_numer = (((x1*y2)-(y1*x2))*(y3-y4)) - ((y1-y2)*((x3*y4)-(y3*x4)))
 
-                #Lines L1 and L2 
-                # L1: (x1,y1) and (x2,y2)
-                # L2: (x3,y3) and (x4,y4)
-            
-                denom = ((x1-x2)*(y3-y4)) - ((y1-y2)*(x3-x4))
+                            Px = int(Px_numer/denom)
+                            Py = int(Py_numer/denom)
 
-                if denom == 0:
-                    continue
-                else:
-                    Px_numer = (((x1*y2)-(y1*x2))*(x3-x4)) - ((x1-x2)*((x3*y4)-(y3*x4)))
-                    Py_numer = (((x1*y2)-(y1*x2))*(y3-y4)) - ((y1-y2)*((x3*y4)-(y3*x4)))
-
-                    Px = int(Px_numer/denom)
-                    Py = int(Py_numer/denom)
-
-                    #Ensure all intersections are positive and within the camera coordinate system
-                    if (Px < 0) or (Py < 0):
-                        continue
-                    else:
-                        P_list = np.append(P_list, [Px, Py], axis = 0)
+                            #Ensure all intersections are positive and within the camera coordinate system
+                            if not ((Px < 0) or (Py < 0)):
+                                P_list = np.append(P_list, [Px, Py], axis = 0)
 
         P_list = np.reshape(P_list,(-1,2))
         P_list.astype(int)
@@ -244,64 +251,103 @@ class Image_process:
 
         return tip_coord_list
 
+    """
+    def autofocus_houghlines(self,slicescope_x,slicescope_y,slicescope_z):
+
+        k_hough_list = []
+
+        #Move slicescope down until probe is out of focus
+        cnt = 0
+        while True:
+            cnt = cnt + 1
+            slicescope_x,slicescope_y,slicescope_z = self.slicescope_instance.moveRelative(slicescope_x,slicescope_y,slicescope_z,0,0,-5_00)
+            tip_coord = self.contour()
+            print(tip_coord)
+            if np.isnan(np.average(tip_coord)):
+                break
+            
+            houghline_p_list,houghline_intersect_list= self.hough_lines_intersect(self.img_list[-1].edge)
+
+            if houghline_intersect_list is not None:
+                k_centroid_list,k_sse_list = self.k_means(houghline_intersect_list)
+                if not len(k_centroid_list) == 0:
+                    k_centroid_list = np.reshape(k_centroid_list,[-1,2])
+                    k_centroid_average = np.mean(k_centroid_list,axis=0)
+                    k_hough_list = np.append(k_hough_list,[k_centroid_average[0],k_centroid_average[1]])
+
+        if not len(k_hough_list) == 0:
+            k_hough_list = np.reshape(k_hough_list,[-1,2]) 
+
+            k_hough_centroid_list,k_hough_sse_list = self.k_means(k_hough_list)
+
+            if not len(k_hough_centroid_list) == 0:
+                k_hough_centroid_list = np.reshape(k_hough_centroid_list,[-1,2])
+                k_hough_centroid_average = np.mean(k_hough_centroid_list,axis=0)
+
+        return k_hough_centroid_list, k_hough_sse_list,k_hough_centroid_average
+    """
+    
     #K-means Cluster method
     def k_means(self, data):
 
-        k_centroids = []
+        if len(data) == 0:
+            return None
+        else:
+            k_centroids = []
 
-        # Sample initial centroids of projected intersections
-        random_indices = random.sample(range( data.shape[0] ), len(data))
-        for i in random_indices:
-            k_centroids.append(data[i])
+            # Sample initial centroids of projected intersections
+            random_indices = random.sample(range( data.shape[0] ), len(data))
+            for i in random_indices:
+                k_centroids.append(data[i])
 
-        #print(k_centroids)
+            #print(k_centroids)
 
-        # Create a list to store which centroid is assigned to each dataset
-        assigned_k_centroids = [0]*len(data)
+            # Create a list to store which centroid is assigned to each dataset
+            assigned_k_centroids = [0]*len(data)
 
-        # Number of dimensions in centroid
-        num_centroid_dims = data.shape[1]
+            # Number of dimensions in centroid
+            num_centroid_dims = data.shape[1]
 
-        # List to store SSE for each iteration 
-        sse_list = []
+            # List to store SSE for each iteration 
+            sse_list = []
 
-        # Loop over iterations
-        for n in range(10):
+            # Loop over iterations
+            for n in range( len(data) ):
 
-            # Loop over each data point
-            for i in range( len(data) ):
-                x = data[i]
+                # Loop over each data point
+                for i in range( len(data) ):
+                    x = data[i]
 
-                # Get the closest centroid
-                closest_centroid = self.get_closest_centroid(x, k_centroids)
+                    # Get the closest centroid
+                    closest_centroid = self.get_closest_centroid(x, k_centroids)
         
-                # Assign the centroid to the data point.
-                assigned_k_centroids[i] = closest_centroid
+                    # Assign the centroid to the data point.
+                    assigned_k_centroids[i] = closest_centroid
 
-            # Loop over k_centroids and compute the new ones.
-            for c in range( len(k_centroids) ):
-                # Get all the data points belonging to a particular cluster
-                cluster_data = [data[i] for i in range( len(data) ) if assigned_k_centroids[i] == c]
+                # Loop over k_centroids and compute the new ones.
+                for c in range( len(k_centroids) ):
+                    # Get all the data points belonging to a particular cluster
+                    cluster_data = [data[i] for i in range( len(data) ) if assigned_k_centroids[i] == c]
     
-                if cluster_data == []:
-                    continue
-                else:
-                    # Initialise the list to hold the new centroid
-                    new_k_centroid = [0]*len(k_centroids[0])
+                    if cluster_data == []:
+                        continue
+                    else:
+                        # Initialise the list to hold the new centroid
+                        new_k_centroid = [0]*len(k_centroids[0])
         
-                    # Compute the average of cluster members to compute new centroid
-                    # Loop over dimensions of data
-                    for dim in range( num_centroid_dims ):
-                        dim_sum = [ x[dim] for x in cluster_data ]
-                        dim_sum = sum(dim_sum) / len(dim_sum)
-                        new_k_centroid[dim] = dim_sum
+                        # Compute the average of cluster members to compute new centroid
+                        # Loop over dimensions of data
+                        for dim in range( num_centroid_dims ):
+                            dim_sum = [ x[dim] for x in cluster_data ]
+                            dim_sum = sum(dim_sum) / len(dim_sum)
+                            new_k_centroid[dim] = dim_sum
 
-                # assign the new centroid
-                k_centroids[c] = new_k_centroid
+                    # assign the new centroid
+                    k_centroids[c] = new_k_centroid
 
-            # Compute the SSE for the iteration
-            sse = self.compute_sse(data, k_centroids, assigned_k_centroids)
-            sse_list.append(sse)
+                # Compute the SSE for the iteration
+                sse = self.compute_sse(data, k_centroids, assigned_k_centroids)
+                sse_list.append(sse)
 
         return k_centroids,sse_list
 
@@ -332,17 +378,20 @@ class Image_process:
         #Sum of Squared Errors (sse). Need to look for the elbow point to get the optimum number of iterations.
         sse = 0
     
-        # Compute the squared distance for each data point and add. 
-        for i,x in enumerate(data):
-    	    # Get the associated centroid for data point
-            centroid = k_centroids[assigned_k_centroids[i]]
+        if len(data) == 0:
+            return None
+        else:
+            # Compute the squared distance for each data point and add. 
+            for i,x in enumerate(data):
+    	        # Get the associated centroid for data point
+                centroid = k_centroids[assigned_k_centroids[i]]
 
-            # Compute the distance to the centroid
-            dist = self.compute_L2_distance(x, centroid)
+                # Compute the distance to the centroid
+                dist = self.compute_L2_distance(x, centroid)
 
-            # Add to the total distance
-            sse = sse + dist
+                # Add to the total distance
+                sse = sse + dist
 
-        sse = sse / len(data)
+            sse = sse / len(data)
 
         return sse
