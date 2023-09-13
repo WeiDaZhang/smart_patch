@@ -130,6 +130,7 @@ def main():
             #print(img_proc.houghline_p_list)
             #print(img_proc.houghline_intersect_list)
 
+            out_idx = []
             filtered_intersect_list = []
 
             if img_proc.houghline_p_list is not None:
@@ -140,27 +141,43 @@ def main():
                     centroid_list = np.append(centroid_list,[x1,y1])
                     centroid_list = np.append(centroid_list,[x2,y2])
 
-                    #Exclude the projected points are on or near the HoughlinesP
-                    for point in img_proc.houghline_intersect_list:
+                    #Get the index of the projected points that are on or near the HoughlinesP
+                    for idx,point in enumerate(img_proc.houghline_intersect_list):
                         x3,y3 = point
+
+                        #Calculate the distance of x3,y3 w.r.t. x1,y1 and x2,y2 of the line to see if it lies between these 2 points
                         check = img_proc.is_between([x1,y1],[x3,y3],[x2,y2])
-
+                        
+                        #if x3,y3 lies between these 2 points, save the index
                         if check == True:
-                            continue
+                            out_idx = np.append(out_idx,idx)     
                         else:
-                            filtered_intersect_list = np.append(filtered_intersect_list,[x3,y3])
-
-                filtered_intersect_list = np.reshape(filtered_intersect_list,[-1,2])
-                #print(filtered_intersect_list)
-
+                            continue
+                
                 centroid_list = np.reshape(centroid_list,[-1,2])
                 centroid_average = np.mean(centroid_list,axis=0)
 
                 arrow_pt_list = np.append(arrow_pt_list,[centroid_average[0],centroid_average[1]])
                 #print(f"avg centroid = {arrow_pt_list}")
 
-            #if img_proc.houghline_intersect_list is not None:
-                #for point in img_proc.houghline_intersect_list:
+                #Exclude the projected points on or near the HoughlinesP using the index
+                #print("Unique index list:")
+                unique_out_idx = list(set(out_idx))
+                #print(unique_out_idx)
+
+                #remove duplicates in img_proc.houghline_intersect_list
+                filtered_intersect_list = img_proc.houghline_intersect_list.copy()               
+
+                if unique_out_idx is not None:
+                    for index in sorted(unique_out_idx, reverse=True):
+                        index = int(index)  #index must be integer to pass into ndarray
+                        filtered_intersect_list = np.delete(filtered_intersect_list,index,axis=0)
+
+                #print("Houghlines Intersect List:")
+                #print(img_proc.houghline_intersect_list)
+                #print("Filtered Intersect List:")
+                #print(filtered_intersect_list)
+
             if filtered_intersect_list is not None:
                 for point in filtered_intersect_list:
                     pt_x,pt_y = point

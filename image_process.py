@@ -150,7 +150,7 @@ class Image_process:
     def is_between(self,a,c,b):
 
         #check if self.distance(a,c) + self.distance(c,b) == self.distance(a,b)
-        tolerance = 100
+        tolerance = 100  # 100 is good
         check = self.distance(a,c) + self.distance(c,b)
         
         if check < self.distance(a,b)+tolerance:
