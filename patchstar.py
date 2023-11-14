@@ -28,26 +28,31 @@ class Patchstar:
         self.y = []
         self.z = []
         self.a = []
-        self.x_origin = []
-        self.y_origin = []
-        self.z_origin = []
-        self.a_origin = []
-        self.x_max = []
-        self.x_min = []
-        self.y_max = []
-        self.y_min = []
-        self.z_max = []
-        self.z_min = []
-        self.a_max = []
-        self.a_min = []
-        self.x_delta = []
-        self.y_delta = []
-        self.z_delta = []
-        self.a_delta = []
-        self.probe_x_max = []
-        self.probe_z_max = []
-        self.probe_x_min = []
-        self.probe_z_min = []
+        self.x_origin = 8102 #[]
+        self.y_origin = 6591 #[]
+        self.z_origin = -8 #[]
+        self.a_origin = 128756 #[]
+        self.x_max = 1054764 #[]
+        self.x_min = -1038559 #[]
+        self.y_max = 1054892 #[]
+        self.y_min = -1041709 #[]
+        self.z_max = 1050184 #[]
+        self.z_min = -1050200 #[]
+        self.a_max = 1485026 #[]
+        self.a_min = -1227512 #[]
+        self.x_delta = 1046661 #[]
+        self.y_delta = 1048300 #[]
+        self.z_delta = 1050192 #[]
+        self.a_delta = 1356269 #[]
+        self.probe_x_max = 1053426 #[]
+        self.probe_z_max = 1035098 #[]
+        self.probe_x_min = -1035980 #[]
+        self.probe_z_min = -1034474 #[]
+        self.x_scale = []
+        self.y_scale = []
+        self.z_scale = []
+        self.a_scale = []
+        self.probe_angle = []
 
     def description(self):
         return "Micromanipulator"    
@@ -56,45 +61,51 @@ class Patchstar:
 
         #Get xyza coordinates
         self.ser.write(b'P ? \r')
-    
         byte_to_string = self.ser.readline().decode('utf-8')
-
         coords = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
 
-        x_query = coords[0]
-        y_query = coords[1]
-        z_query = coords[2]
-        a_query = coords[3]
-
-        return x_query,y_query,z_query,a_query 
+        self.x = coords[0]
+        self.y = coords[1]
+        self.z = coords[2]
+        self.a = coords[3]
 
     def angle(self):
 
         self.ser.write(b'ANGLE \r')
-    
-        angle = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        probe_angle = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
 
-        return angle
+        self.probe_angle = probe_angle[0]
 
     def scale(self):
 
         #X axis scale
         self.ser.write(b'SCALE X \r')
-        x_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        x_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
+
+        self.x_scale = x_scale[0]
 
         #Y axis scale
         self.ser.write(b'SCALE Y \r')
-        y_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        y_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
+
+        self.y_scale = y_scale[0]
 
         #Z axis scale
         self.ser.write(b'SCALE Z \r')
-        z_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        z_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
+
+        self.z_scale = z_scale[0]
 
         #A axis scale
         self.ser.write(b'SCALE A \r')
-        a_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        a_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
 
-        return x_scale,y_scale,z_scale,a_scale
+        self.a_scale = a_scale[0]
 
     def calibration(self):
 
@@ -105,47 +116,47 @@ class Patchstar:
 
         #Patchstar
         # X axis calibration
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,x_step,0,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,x_step,0,0)
         self.x_max = self.x
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,-x_step,0,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,-x_step,0,0)
         self.x_min = self.x
 
         self.x_delta = int(abs((self.x_max - self.x_min)/2))
         
         #Move patchstar back to center
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,self.x_delta,0,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,self.x_delta,0,0)
         self.x_origin = self.x
 
         # Y axis calibration
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,0,y_step,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,y_step,0)
         self.y_max = self.y
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,0,-y_step,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,-y_step,0)
         self.y_min = self.y
 
         self.y_delta = int(abs((self.y_max - self.y_min)/2))
 
         #Move patchstar back to center
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,0,self.y_delta,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,self.y_delta,0)
         self.y_origin = self.y
 
         # Z axis calibration
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,z_step)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,z_step)
         self.z_max = self.z
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,-z_step)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,-z_step)
         self.z_min = self.z
 
         self.z_delta = int(abs((self.z_max - self.z_min)/2))
 
         #Move patchstar back to center
-        self.x,self.y,self.z,self.a = self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,self.z_delta)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,self.z_delta)
         self.z_origin = self.z
 
         # A axis calibration
-        self.x,self.y,self.z,self.a = self.approachRelativeNoLimit(self.a,a_step)
+        self.approachRelativeNoLimit(self.a,a_step)
         self.a_max = self.a
         self.probe_x_max = self.x
         self.probe_z_max = self.z
-        self.x,self.y,self.z,self.a = self.approachRelativeNoLimit(self.a,-a_step)
+        self.approachRelativeNoLimit(self.a,-a_step)
         self.a_min = self.a
         self.probe_x_min = self.x
         self.probe_z_min = self.z
@@ -153,7 +164,7 @@ class Patchstar:
         self.a_delta = int(abs((self.a_max - self.a_min)/2))
 
         #Move probe (Approach) back to center
-        self.x,self.y,self.z,self.a = self.approachRelativeNoLimit(self.a,self.a_delta)
+        self.approachRelativeNoLimit(self.a,self.a_delta)
         self.a_origin = self.a
 
     def moveAbsolute(self,abs_x,abs_y,abs_z):  
@@ -171,79 +182,73 @@ class Patchstar:
     #Limits of [X Y Z] = +-[10e5 10e5 10e5] 
 
         if abs_x > self.x_max:
-            local_x = self.x_max
+            self.x = self.x_max
         
         elif abs_x < self.x_min:
-            local_x = self.x_min
+            self.x = self.x_min
 
         else: 
-            local_x = abs_x
+            self.x = abs_x
 
-        if local_x > 0:
-            self.x_delta = int(abs(self.x_max - local_x))
-        elif local_x < 0:
-            self.x_delta = int(abs(self.x_min - local_x))
+        if self.x > 0:
+            self.x_delta = int(abs(self.x_max - self.x))
+        elif self.x < 0:
+            self.x_delta = int(abs(self.x_min - self.x))
         else:
             self.x_delta = int(abs((self.x_max - self.x_min)/2))
 
         if abs_y > self.y_max:
-            local_y = self.y_max
+            self.y = self.y_max
         
         elif abs_y < self.y_min:
-            local_y = self.y_min
+            self.y = self.y_min
 
         else: 
-            local_y = abs_y
+            self.y = abs_y
 
-        if local_y > 0:
-            self.y_delta = int(abs(self.y_max - local_y))
-        elif local_y < 0:
-            self.y_delta = int(abs(self.y_min - local_y))
+        if self.y > 0:
+            self.y_delta = int(abs(self.y_max - self.y))
+        elif self.y < 0:
+            self.y_delta = int(abs(self.y_min - self.y))
         else:
             self.y_delta = int(abs((self.y_max - self.y_min)/2))
 
         if abs_z > self.z_max:
-            local_z = self.z_max
+            self.z = self.z_max
         
         elif abs_z < self.z_min:
-            local_z = self.z_min
+            self.z = self.z_min
 
         else: 
-            local_z = abs_z
+            self.z = abs_z
 
-        if local_z > 0:
-            self.z_delta = int(abs(self.z_max - local_z))
-        elif local_z < 0:
-            self.z_delta = int(abs(self.z_min - local_z))
+        if self.z > 0:
+            self.z_delta = int(abs(self.z_max - self.z))
+        elif self.z < 0:
+            self.z_delta = int(abs(self.z_min - self.z))
         else:
             self.z_delta = int(abs((self.z_max - self.z_min)/2))
 
-        command = f"ABS {local_x} {local_y} {local_z}\r"  #x,y,z coordinates 
-        
+        command = f"ABS {self.x} {self.y} {self.z}\r"  #x,y,z coordinates 
         self.ser.write(command.encode('utf-8'))
 
-        print(f"Moved Micromanipulator to ABS coords = {local_x} {local_y} {local_z}")   #Read the message/acknowledgment from the command
+        print(f"Moved Micromanipulator to ABS coords = {self.x} {self.y} {self.z}")   #Read the message/acknowledgment from the command
 
         self.wait()
-
-        return local_x,local_y,local_z
 
     def moveRelativeNoLimit(self,current_x,current_y,current_z,rel_x,rel_y,rel_z):
     #Move to NEW COORDINATES by new values relative to current coordinates
 
         command = f"REL {rel_x} {rel_y} {rel_z}\r"
-        
         self.ser.write(command.encode('utf-8'))
 
         print(f"Moved Micromanipulator by REL coords = {rel_x} {rel_y} {rel_z}")
  
         self.wait()
 
-        new_x,new_y,new_z,new_a = self.coordinates()
+        self.coordinates()
 
-        print(f"New Micromanipulator coordinates = {new_x} {new_y} {new_z} {new_a}")
-
-        return new_x,new_y,new_z,new_a
+        print(f"New Micromanipulator coordinates = {self.x} {self.y} {self.z} {self.a}")
 
     def moveRelative(self,current_x,current_y,current_z,rel_x,rel_y,rel_z):
 
@@ -265,26 +270,26 @@ class Patchstar:
         if new_x > self.x_max:
 
             new_rel_x = int(self.x_max - current_x)
-            local_x = self.x_max
+            self.x = self.x_max
 
         elif new_x < self.x_min:
 
             new_rel_x = int(self.x_min - current_x)
-            local_x = self.x_min
+            self.x = self.x_min
 
         else:
 
             new_rel_x = rel_x
-            local_x = new_x
+            self.x = new_x
 
-        if local_x > 0:
-            self.x_delta = int(abs(self.x_max - local_x))
-        elif local_x < 0:
-            self.x_delta = int(abs(self.x_min - local_x))
+        if self.x > 0:
+            self.x_delta = int(abs(self.x_max - self.x))
+        elif self.x < 0:
+            self.x_delta = int(abs(self.x_min - self.x))
         else:
             self.x_delta = int(abs((self.x_max - self.x_min)/2))
 
-        print(f"Micromanipulator X coordinate is now = {local_x}")
+        print(f"Micromanipulator X coordinate is now = {self.x}")
 
     #Set a coord RELY x: RELY #
 
@@ -293,26 +298,26 @@ class Patchstar:
         if new_y > self.y_max:
         
             new_rel_y = int(self.y_max - current_y)
-            local_y = self.y_max
+            self.y = self.y_max
 
         elif new_y < self.y_min:
         
             new_rel_y = int(self.y_min - current_y)
-            local_y = self.y_min
+            self.y = self.y_min
 
         else:
         
             new_rel_y = rel_y
-            local_y = new_y
+            self.y = new_y
 
-        if local_y > 0:
-            self.y_delta = int(abs(self.y_max - local_y))
-        elif local_y < 0:
-            self.y_delta = int(abs(self.y_min - local_y))
+        if self.y > 0:
+            self.y_delta = int(abs(self.y_max - self.y))
+        elif self.y < 0:
+            self.y_delta = int(abs(self.y_min - self.y))
         else:
             self.y_delta = int(abs((self.y_max - self.y_min)/2))
 
-        print(f"Micromanipulator Y coordinate is now = {local_y}")
+        print(f"Micromanipulator Y coordinate is now = {self.y}")
 
     #Set a coord RELZ x: RELZ #
 
@@ -321,39 +326,36 @@ class Patchstar:
         if new_z > self.z_max:
         
             new_rel_z = int(self.z_max - current_z)
-            local_z = self.z_max
+            self.z = self.z_max
 
         elif new_z < self.z_min:
         
             new_rel_z = int(self.z_min - current_z)
-            local_z = self.z_min
+            self.z = self.z_min
 
         else:
         
             new_rel_z = rel_z
-            local_z = new_z
+            self.z = new_z
 
-        if local_z > 0:
-            self.z_delta = int(abs(self.z_max - local_z))
-        elif local_z < 0:
-            self.z_delta = int(abs(self.z_min - local_z))
+        if self.z > 0:
+            self.z_delta = int(abs(self.z_max - self.z))
+        elif self.z < 0:
+            self.z_delta = int(abs(self.z_min - self.z))
         else:
             self.z_delta = int(abs((self.z_max - self.z_min)/2))
 
-        print(f"Micromanipulator Z coordinate is now = {local_z}")
+        print(f"Micromanipulator Z coordinate is now = {self.z}")
 
     #Move to NEW COORDINATES by new values relative to current coordinates
 
         command = f"REL {new_rel_x} {new_rel_y} {new_rel_z}\r"
-        
         self.ser.write(command.encode('utf-8'))
 
         print(f"Moved Micromanipulator by REL coords = {new_rel_x} {new_rel_y} {new_rel_z}")
-        print(f"New Micromanipulator coordinates = {local_x} {local_y} {local_z}")
+        print(f"New Micromanipulator coordinates = {self.x} {self.y} {self.z}")
 
         self.wait()
-
-        return local_x,local_y,local_z
 
     def approachAbsolute(self,abs_a): 
 
@@ -363,30 +365,27 @@ class Patchstar:
     #Limit is +-12,000.00 or 12e5
 
         if abs_a > self.a_max:
-            local_a = self.a_max
+            self.a = self.a_max
         
         elif abs_a < self.a_min:
-            local_a = self.a_min
+            self.a = self.a_min
 
         else: 
-            local_a = abs_a
+            self.a = abs_a
 
-        if local_a > 0:
-            self.a_delta = int(abs(self.a_max - local_a))
-        elif local_a < 0:
-            self.a_delta = int(abs(self.a_min - local_a))
+        if self.a > 0:
+            self.a_delta = int(abs(self.a_max - self.a))
+        elif self.a < 0:
+            self.a_delta = int(abs(self.a_min - self.a))
         else:
             self.a_delta = int(abs((self.a_max - self.a_min)/2))
 
-        command = f"ABSA {local_a}\r"  #A=XZ coordinates 
-
+        command = f"ABSA {self.a}\r"  #A=XZ coordinates 
         self.ser.write(command.encode('utf-8'))
 
-        print(f"Moved Probe to approach ABS = {local_a}")   #Read the message/acknowledgment from the command
+        print(f"Moved Probe to approach ABS = {self.a}")   #Read the message/acknowledgment from the command
 
         self.wait()
-
-        return local_a
 
     def approachRelativeNoLimit(self,current_a,rel_a):  
 
@@ -394,18 +393,15 @@ class Patchstar:
     #Set a coord RELA x: RELA #     
 
         command = f"RELA {rel_a}\r"  #A=XZ coordinates 
-
         self.ser.write(command.encode('utf-8'))
 
         print(f"Moved Probe to approach REL = {rel_a}")   #Read the message/acknowledgment from the command
 
         self.wait()
 
-        new_x,new_y,new_z,new_a = self.coordinates()
+        self.coordinates()
 
-        print(f"New Micromanipulator coordinates = {new_x} {new_y} {new_z} {new_a}")  #Read the message/acknowledgment from the command
-
-        return new_x,new_y,new_z,new_a
+        print(f"New Micromanipulator coordinates = {self.x} {self.y} {self.z} {self.a}")  #Read the message/acknowledgment from the command
 
     def approachRelative(self,current_a,rel_a):  
 
@@ -419,35 +415,32 @@ class Patchstar:
         if new_a > self.a_max:
         
             new_rel_a = int(self.a_max - current_a)
-            local_a = self.a_max
+            self.a = self.a_max
 
         elif new_a < self.a_min:
         
             new_rel_a = int(self.a_min - current_a)
-            local_a = self.a_min
+            self.a = self.a_min
 
         else:
         
             new_rel_a = rel_a
-            local_a = new_a
+            self.a = new_a
 
-        if local_a > 0:
-            self.a_delta = int(abs(self.a_max - local_a))
-        elif local_a < 0:
-            self.a_delta = int(abs(self.a_min - local_a))
+        if self.a > 0:
+            self.a_delta = int(abs(self.a_max - self.a))
+        elif self.a < 0:
+            self.a_delta = int(abs(self.a_min - self.a))
         else:
             self.a_delta = int(abs((self.a_max - self.a_min)/2))
 
         command = f"RELA {new_rel_a}\r"  #A=XZ coordinates 
-
         self.ser.write(command.encode('utf-8'))
 
         print(f"Moved Probe to approach REL = {new_rel_a}")   #Read the message/acknowledgment from the command
-        print(f"Coordinate A = {local_a}")   #Read the message/acknowledgment from the command
+        print(f"Coordinate A = {self.a}")   #Read the message/acknowledgment from the command
 
         self.wait()
-
-        return local_a
 
     def moveUp(self,current_z,rel_z):
 
@@ -461,30 +454,26 @@ class Patchstar:
             if new_z > self.z_max:
 
                 new_rel_z = int(self.z_max - current_z)
-                local_z = self.z_max
+                self.z = self.z_max
 
             else:
 
                 new_rel_z = rel_z
-                local_z = new_z
+                self.z = new_z
 
-            self.z_delta = int(abs(self.z_max - local_z))
+            self.z_delta = int(abs(self.z_max - self.z))
 
             #Create string with command, then convert to byte to write to serial.
 
             command = f"OBJLIFT {new_rel_z}\r"  #Values in OBJLIFT can be negative.
-
             self.ser.write(command.encode('utf-8'))
-
             self.ser.write(b'OBJU\r')  #Moves like RELZ. 
 
             print(self.ser.readline().decode('utf-8'))
 
-            print(f"Micromanipulator Z coordinate is now = {local_z}")
+            print(f"Micromanipulator Z coordinate is now = {self.z}")
 
         self.wait()
-
-        return local_z
 
     def stepOut(self,patchstar_z,patchstar_a,step_out):
     #Objective step in or out. Step in closer to sample. Step out away from sample.
@@ -493,9 +482,7 @@ class Patchstar:
         step_out = abs(step_out)
 
         self.ser.write(b'APPROACH\r')
-
         byte_to_string = self.ser.readline().decode('utf-8')
-    
         status = int(re.search( r'[-+]?\d+' , byte_to_string).group()) #Search for numbers and convert MatchObject (whatever integer matches) as String.
 
         if (status == 1):
@@ -506,23 +493,22 @@ class Patchstar:
             if new_a > self.a_max:
 
                 new_rel_a = int(self.a_max - patchstar_a)
-                local_a = self.a_max
+                self.a = self.a_max
 
             else:
 
                 new_rel_a = step_out
-                local_a = new_a
+                self.a = new_a
 
-            self.a_delta = int(abs(self.a_max - local_a))
+            self.a_delta = int(abs(self.a_max - self.a))
 
             command = f"SETSTEP {new_rel_a}\r"  #Set step value.
-
             self.ser.write(command.encode('utf-8'))
-
             self.ser.write(b'STEP\r')    #Step out. Moves up in A=XZ direction by SETSTEP value
+
             print(f"Moved Micromanipulator OUT by STEP = {new_rel_a}")
 
-            print(f"Micromanipulator A coordinate is now = {local_a}")
+            print(f"Micromanipulator A coordinate is now = {self.a}")
 
         else:
 
@@ -533,27 +519,24 @@ class Patchstar:
             if new_z > self.z_max:
 
                 new_rel_z = int(self.z_max - patchstar_z)
-                local_z = self.z_max
+                self.z = self.z_max
 
             else:
 
                 new_rel_z = step_out
-                local_z = new_z
+                self.z = new_z
 
-            self.z_delta = int(abs(self.z_max - local_z))
+            self.z_delta = int(abs(self.z_max - self.z))
 
             command = f"SETSTEP {new_rel_a}\r"  #Set step value.
-
             self.ser.write(command.encode('utf-8'))
-
             self.ser.write(b'STEP\r')    #Step out. Moves up in Z direction by SETSTEP value
+
             print(f"Moved Micromanipulator OUT by STEP = {new_rel_z}")
 
-            print(f"Micromanipulator Z coordinate is now = {local_z}")
+            print(f"Micromanipulator Z coordinate is now = {self.z}")
 
         self.wait()
-
-        return local_z, local_a
 
     def stepIn(self,patchstar_z,patchstar_a,step_in):
     #Objective step in or out. Step in closer to sample. Step out away from sample.
@@ -562,9 +545,7 @@ class Patchstar:
         step_in = abs(step_in)
     
         self.ser.write(b'APPROACH\r')
-
         byte_to_string = self.ser.readline().decode('utf-8')
-
         status = int(re.search( r'[-+]?\d+' , byte_to_string).group()) #Search for numbers and convert MatchObject (whatever integer matches) as String.
 
         if (status == 1):
@@ -575,23 +556,22 @@ class Patchstar:
             if new_a < self.a_min:
 
                 new_rel_a = int(patchstar_a - self.a_min)
-                local_a = self.a_min
+                self.a = self.a_min
 
             else:
 
                 new_rel_a = step_in
-                local_a = new_a
+                self.a = new_a
 
-            self.a_delta = int(abs(local_a - self.a_min))
+            self.a_delta = int(abs(self.a - self.a_min))
 
             command = f"SETSTEP {new_rel_a}\r"  #Set step value.
-
             self.ser.write(command.encode('utf-8'))
-            
             self.ser.write(b'STEP B\r')    #Step out. Moves up in A=XZ direction by SETSTEP value
+
             print(f"Moved Micromanipulator IN by STEP = {new_rel_a}")
 
-            print(f"Micromanipulator A coordinate is now = {local_a}")
+            print(f"Micromanipulator A coordinate is now = {self.a}")
 
         else:
 
@@ -602,27 +582,24 @@ class Patchstar:
             if new_z < self.z_min:
 
                 new_rel_z = int(patchstar_z - self.z_min)
-                local_z = self.z_min
+                self.z = self.z_min
 
             else:
 
                 new_rel_z = step_in
-                local_z = new_z
+                self.z = new_z
 
-            self.z_delta = int(abs(local_z - self.z_min))
+            self.z_delta = int(abs(self.z - self.z_min))
 
             command = f"SETSTEP {new_rel_z}\r"  #Set step value.
-
             self.ser.write(command.encode('utf-8'))
-
             self.ser.write(b'STEP B\r')    #Step out. Moves up in Z direction by SETSTEP value
+
             print(f"Moved Micromanipulator OUT by STEP = {new_rel_z}")
 
-            print(f"Micromanipulator Z coordinate is now = {local_z}")
-        
-        self.wait()
+            print(f"Micromanipulator Z coordinate is now = {self.z}")
 
-        return local_z, local_a
+        self.wait()
 
     def stop(self):
         #Stop object

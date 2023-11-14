@@ -23,18 +23,21 @@ class Slicescope:
         self.x = []
         self.y = []
         self.z = []
-        self.x_origin = []
-        self.y_origin = []
-        self.z_origin = []
-        self.x_max = []
-        self.x_min = []
-        self.y_max = []
-        self.y_min = []
-        self.z_max = []
-        self.z_min = []
-        self.x_delta = []
-        self.y_delta = []
-        self.z_delta = []
+        self.x_origin = 14882 #[]
+        self.y_origin = -1909 #[]
+        self.z_origin = 10800 #[]
+        self.x_max = 2529934 #[]
+        self.x_min = -2500170 #[]
+        self.y_max = 2512914 #[]
+        self.y_min = -2516731 #[]
+        self.z_max = 1256819 #[]
+        self.z_min = -1235219 #[]
+        self.x_delta = 2515052 #[]
+        self.y_delta = 2514822 #[]
+        self.z_delta = 1246019 #[]
+        self.x_scale = []
+        self.y_scale = []
+        self.z_scale = []
 
     def description(self):
         return "Slicescope"
@@ -43,32 +46,35 @@ class Slicescope:
 
         #Get xyz coordinates
         self.ser.write(b'P ? \r')
-
         byte_to_string = self.ser.readline().decode('utf-8')
-        
         coords = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
     
-        x_query = coords[0]
-        y_query = coords[1]
-        z_query = coords[2]
-    
-        return x_query,y_query,z_query 
+        self.x = coords[0]
+        self.y = coords[1]
+        self.z = coords[2]
 
     def scale(self):
 
         #X axis scale
         self.ser.write(b'SCALE X \r')
-        x_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        x_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
+
+        self.x_scale = x_scale[0]
 
         #Y axis scale
         self.ser.write(b'SCALE Y \r')
-        y_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        y_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
+
+        self.y_scale = y_scale[0]
 
         #Z axis scale
         self.ser.write(b'SCALE Z \r')
-        z_scale = self.ser.readline().decode('utf-8')
+        byte_to_string = self.ser.readline().decode('utf-8')
+        z_scale = [ int(s) for s in re.findall( r'[-+]?\d+' , byte_to_string) ]
 
-        return x_scale,y_scale,z_scale
+        self.z_scale = z_scale[0]
 
     def calibration(self):
 
@@ -78,39 +84,39 @@ class Slicescope:
 
         #Slicescope
         # X axis calibration
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,x_step,0,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,x_step,0,0)
         self.x_max = self.x
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,-x_step,0,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,-x_step,0,0)
         self.x_min = self.x
 
         self.x_delta = int(abs((self.x_max - self.x_min)/2))
         
         #Move slicescope back to center
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,self.x_delta,0,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,self.x_delta,0,0)
         self.x_origin = self.x
 
         # Y axis calibration
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,0,y_step,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,y_step,0)
         self.y_max = self.y
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,0,-y_step,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,-y_step,0)
         self.y_min = self.y
 
         self.y_delta = int(abs((self.y_max - self.y_min)/2))
 
         #Move slicescope back to center
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,0,self.y_delta,0)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,self.y_delta,0)
         self.y_origin = self.y
 
         # Z axis calibration
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,z_step)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,z_step)
         self.z_max = self.z
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,-z_step)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,-z_step)
         self.z_min = self.z
 
         self.z_delta = int(abs((self.z_max - self.z_min)/2))
 
         #Move slicescope back to center
-        self.x,self.y,self.z = self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,self.z_delta)
+        self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,self.z_delta)
         self.z_origin = self.z
 
     def moveAbsolute(self,abs_x,abs_y,abs_z):   
@@ -131,79 +137,73 @@ class Slicescope:
     #Limits of [X Y Z] = +-[25e5 25e5 12.5e5] 
 
         if abs_x > self.x_max:
-            local_x = self.x_max
+            self.x = self.x_max
         
         elif abs_x < self.x_min:
-            local_x = self.x_min
+            self.x = self.x_min
 
         else: 
-            local_x = abs_x
+            self.x = abs_x
 
-        if local_x > 0:
-            self.x_delta = int(abs(self.x_max - local_x))
-        elif local_x < 0:
-            self.x_delta = int(abs(self.x_min - local_x))
+        if self.x > 0:
+            self.x_delta = int(abs(self.x_max - self.x))
+        elif self.x < 0:
+            self.x_delta = int(abs(self.x_min - self.x))
         else:
             self.x_delta = int(abs((self.x_max - self.x_min)/2))
 
         if abs_y > self.y_max:
-            local_y = self.y_max
+            self.y = self.y_max
         
         elif abs_y < self.y_min:
-            local_y = self.y_min
+            self.y = self.y_min
 
         else: 
-            local_y = abs_y
+            self.y = abs_y
 
-        if local_y > 0:
-            self.y_delta = int(abs(self.y_max - local_y))
-        elif local_y < 0:
-            self.y_delta = int(abs(self.y_min - local_y))
+        if self.y > 0:
+            self.y_delta = int(abs(self.y_max - self.y))
+        elif self.y < 0:
+            self.y_delta = int(abs(self.y_min - self.y))
         else:
             self.y_delta = int(abs((self.y_max - self.y_min)/2))
 
         if abs_z > self.z_max:
-            local_z = self.z_max
+            self.z = self.z_max
         
         elif abs_z < self.z_min:
-            local_z = self.z_min
+            self.z = self.z_min
 
         else: 
-            local_z = abs_z
+            self.z = abs_z
 
-        if local_z > 0:
-            self.z_delta = int(abs(self.z_max - local_z))
-        elif local_z < 0:
-            self.z_delta = int(abs(self.z_min - local_z))
+        if self.z > 0:
+            self.z_delta = int(abs(self.z_max - self.z))
+        elif self.z < 0:
+            self.z_delta = int(abs(self.z_min - self.z))
         else:
             self.z_delta = int(abs((self.z_max - self.z_min)/2))
 
-        command = f"ABS {local_x} {local_y} {local_z}\r" #x,y,z coordinates 
-        
+        command = f"ABS {self.x} {self.y} {self.z}\r" #x,y,z coordinates 
         self.ser.write(command.encode('utf-8'))
 
-        print(f"Moved Slicescope to ABS coords (X Y Z) = {local_x} {local_y} {local_z}")
+        print(f"Moved Slicescope to ABS coords (X Y Z) = {self.x} {self.y} {self.z}")
 
         self.wait()
-        
-        return local_x,local_y,local_z
 
     def moveRelativeNoLimit(self,current_x,current_y,current_z,rel_x,rel_y,rel_z):
     #Move to NEW COORDINATES by new values relative to current coordinates
 
         command = f"REL {rel_x} {rel_y} {rel_z}\r"
-        
         self.ser.write(command.encode('utf-8'))
 
         print(f"Moved Slicescope by REL coords = {rel_x} {rel_y} {rel_z}")
  
         self.wait()
 
-        new_x,new_y,new_z = self.coordinates()
+        self.coordinates()
 
-        print(f"New Slicescope coordinates = {new_x} {new_y} {new_z}")
-
-        return new_x,new_y,new_z
+        print(f"New Slicescope coordinates = {self.x} {self.y} {self.z}")
 
     def moveRelative(self,current_x,current_y,current_z,rel_x,rel_y,rel_z):
 
@@ -226,24 +226,24 @@ class Slicescope:
         if new_x > self.x_max:
         
             new_rel_x = int(self.x_max - current_x)
-            local_x = self.x_max
+            self.x = self.x_max
 
         elif new_x < self.x_min:
         
             new_rel_x = int(self.x_min - current_x)
-            local_x = self.x_min
+            self.x = self.x_min
 
         else:
         
             new_rel_x = rel_x
-            local_x = new_x
+            self.x = new_x
 
-        print(f"Slicescope X coordinate is now = {local_x}")
+        print(f"Slicescope X coordinate is now = {self.x}")
 
-        if local_x > 0:
-            self.x_delta = int(abs(self.x_max - local_x))
-        elif local_x < 0:
-            self.x_delta = int(abs(self.x_min - local_x))
+        if self.x > 0:
+            self.x_delta = int(abs(self.x_max - self.x))
+        elif self.x < 0:
+            self.x_delta = int(abs(self.x_min - self.x))
         else:
             self.x_delta = int(abs((self.x_max - self.x_min)/2))
 
@@ -254,24 +254,24 @@ class Slicescope:
         if new_y > self.y_max:
         
             new_rel_y = int(self.y_max - current_y)
-            local_y = self.y_max
+            self.y = self.y_max
 
         elif new_y < self.y_min:
         
             new_rel_y = int(self.y_min - current_y)
-            local_y = self.y_min
+            self.y = self.y_min
 
         else:
         
             new_rel_y = rel_y
-            local_y = new_y
+            self.y = new_y
 
-        print(f"Slicescope Y coordinate is now = {local_y}")
+        print(f"Slicescope Y coordinate is now = {self.y}")
 
-        if local_y > 0:
-            self.y_delta = int(abs(self.y_max - local_y))
-        elif local_y < 0:
-            self.y_delta = int(abs(self.y_min - local_y))
+        if self.y > 0:
+            self.y_delta = int(abs(self.y_max - self.y))
+        elif self.y < 0:
+            self.y_delta = int(abs(self.y_min - self.y))
         else:
             self.y_delta = int(abs((self.y_max - self.y_min)/2))
 
@@ -282,39 +282,36 @@ class Slicescope:
         if new_z > self.z_max:
         
             new_rel_z = int(self.z_max - current_z)
-            local_z = self.z_max
+            self.z = self.z_max
 
         elif new_z < self.z_min:
         
             new_rel_z = int(self.z_min - current_z)
-            local_z = self.z_min
+            self.z = self.z_min
 
         else:
         
             new_rel_z = rel_z
-            local_z = new_z
+            self.z = new_z
 
-        print(f"Slicescope Z coordinate is now = {local_z}")
+        print(f"Slicescope Z coordinate is now = {self.z}")
 
-        if local_z > 0:
-            self.z_delta = int(abs(self.z_max - local_z))
-        elif local_z < 0:
-            self.z_delta = int(abs(self.z_min - local_z))
+        if self.z > 0:
+            self.z_delta = int(abs(self.z_max - self.z))
+        elif self.z < 0:
+            self.z_delta = int(abs(self.z_min - self.z))
         else:
             self.z_delta = int(abs((self.z_max - self.z_min)/2))
 
     #Move to NEW COORDINATES by new values relative to current coordinates
 
         command = f"REL {new_rel_x} {new_rel_y} {new_rel_z}\r"
-        
         self.ser.write(command.encode('utf-8'))
    
         print(f"Moved Slicescope by REL coords = {new_rel_x} {new_rel_y} {new_rel_z}")
-        print(f"New Slicescope coordinates = {local_x} {local_y} {local_z}")
+        print(f"New Slicescope coordinates = {self.x} {self.y} {self.z}")
 
         self.wait()
-
-        return local_x,local_y,local_z
 
     def moveUp(self,current_z,rel_z):
 
@@ -330,30 +327,26 @@ class Slicescope:
             if new_z > self.z_max:
 
                 new_rel_z = int(self.z_max - current_z)
-                local_z = self.z_max
+                self.z = self.z_max
 
             else:
             
                 new_rel_z = rel_z
-                local_z = new_z
+                self.z = new_z
 
-            self.z_delta = int(abs(self.z_max - local_z))
+            self.z_delta = int(abs(self.z_max - self.z))
 
             #Create string with command, then convert to byte to write to serial.
         
             command = f"OBJLIFT {new_rel_z}\r"  #Values in OBJLIFT can be negative.
-        
             self.ser.write(command.encode('utf-8'))
-        
             self.ser.write(b'OBJU\r')  #Moves like RELZ. 
 
             print(self.ser.readline().decode('utf-8'))
         
-            print(f"Slicescope Z coordinate is now = {local_z}")
+            print(f"Slicescope Z coordinate is now = {self.z}")
 
             self.wait()
-
-        return local_z
 
     def stepOut(self,slicescope_z,step_out):
 
@@ -370,27 +363,24 @@ class Slicescope:
         if new_z > self.z_max:
 
             new_rel_z = int(self.z_max - slicescope_z)
-            local_z = self.z_max
+            self.z = self.z_max
 
         else:
 
             new_rel_z = step_out
-            local_z = new_z
+            self.z = new_z
 
-        self.z_delta = int(abs(self.z_max - local_z))
+        self.z_delta = int(abs(self.z_max - self.z))
 
         command = f"SETSTEP {new_rel_z}\r"  #Set step value.
-
         self.ser.write(command.encode('utf-8'))
-
         self.ser.write(b'STEP\r')    #Step out. Moves up in Z direction by SETSTEP value
+
         print(f"Moved Slicescope OUT by STEP = {new_rel_z}")
 
-        print(f"Slicescope Z coordinate is now = {local_z}")
+        print(f"Slicescope Z coordinate is now = {self.z}")
 
         self.wait()
-
-        return local_z
 
     def stepIn(self,slicescope_z,step_in):
 
@@ -407,27 +397,24 @@ class Slicescope:
         if new_z < self.z_min:
 
             new_rel_z = int(slicescope_z - self.z_min)
-            local_z = self.z_min
+            self.z = self.z_min
 
         else:
 
             new_rel_z = step_in
-            local_z = new_z
+            self.z = new_z
 
-        self.z_delta = int(abs(local_z - self.z_min))
+        self.z_delta = int(abs(self.z - self.z_min))
 
         command = f"SETSTEP {new_rel_z}\r"  #Set step value.
-
         self.ser.write(command.encode('utf-8'))
-
         self.ser.write(b'STEP B\r')   #Step in. Moves down in Z direction by SETSTEP value
+
         print(f"Moved Slicescope IN by STEP = {new_rel_z}")
 
-        print(f"Slicescope Z coordinate is now = {local_z}")
+        print(f"Slicescope Z coordinate is now = {self.z}")
 
         self.wait()
-
-        return local_z
 
     def stop(self):
         #Stop object
