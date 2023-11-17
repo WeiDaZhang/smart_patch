@@ -43,7 +43,8 @@ class Patchstar:
         self.x_delta = [] #1046661
         self.y_delta = [] #1048300
         self.z_delta = [] #1050192
-        self.a_delta = [] #1356269
+        self.a_max_delta = [] #950170
+        self.a_min_delta = [] #1139899
         self.probe_x_max = [] #1053426
         self.probe_z_max = [] #1035098
         self.probe_x_min = [] #-1035980
@@ -198,7 +199,6 @@ class Patchstar:
         x_step = 100000_00
         y_step = 100000_00
         z_step = 100000_00
-        a_step = 100000_00
 
         #Patchstar
         # X axis calibration
@@ -238,20 +238,28 @@ class Patchstar:
         self.z_origin = self.z
 
         # A axis calibration
-        self.approachRelativeNoLimit(self.a,a_step)
+        self.coordinates()
+        self.a_origin = self.a
+
+        #Move X and Z together. Check common movement limits
+        xz_upper_limit = min(self.x_max,self.z_max)
+
+        self.approachRelativeNoLimit(self.a,xz_upper_limit)
         self.a_max = self.a
         self.probe_x_max = self.x
         self.probe_z_max = self.z
-        self.approachRelativeNoLimit(self.a,-a_step)
+        self.approachRelativeNoLimit(self.a,-xz_upper_limit) #Move probe back to A origin
+
+        xz_lower_limit = max(self.x_min,self.z_min)
+
+        self.approachRelativeNoLimit(self.a,xz_lower_limit)
         self.a_min = self.a
         self.probe_x_min = self.x
         self.probe_z_min = self.z
+        self.approachRelativeNoLimit(self.a,-xz_lower_limit) #Move probe back to A origin
 
-        self.a_delta = int(abs((self.a_max - self.a_min)/2))
-
-        #Move probe (Approach) back to center
-        self.approachRelativeNoLimit(self.a,self.a_delta)
-        self.a_origin = self.a
+        self.a_max_delta = int(abs(self.a_max - self.a_origin))
+        self.a_min_delta = int(abs(self.a_origin - self.a_min))
 
     def moveAbsolute(self,abs_x,abs_y,abs_z):  
 
