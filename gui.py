@@ -12,7 +12,8 @@ Bioptix Ltd.
 from slicescope import Slicescope
 from patchstar import Patchstar
 from pvcam import PVCAM
-from tkgui import App
+#from tkgui import App
+from tkgui_highmag import App
 
 
 def main():
