@@ -24,25 +24,21 @@ class Slicescope:
         self.x = []
         self.y = []
         self.z = []
-        self.x_origin = 14882
-        self.y_origin = -1909
-        self.z_origin = 10800
-        self.x_max = 2529934
-        self.x_min = -2500170
-        self.y_max = 2512914
-        self.y_min = -2516731
-        self.z_max = 1256819
-        self.z_min = -1235219
-        self.x_delta = 2515052
-        self.y_delta = 2514822
-        self.z_delta = 1246019
+        self.x_origin = 591_60 #14882
+        self.y_origin = -2312_52 #-1909
+        self.z_origin = 7937_13 #10800
+        self.x_max = 25741_89 #2529934 
+        self.x_min = -24558_69 #-2500170
+        self.y_max = 22854_05 #2512914
+        self.y_min = -27479_09 #-2516731
+        self.z_max = 20443_41 #1256819
+        self.z_min = -4569_14 #-1235219
+        self.x_delta = 25150_29 #2515052
+        self.y_delta = 25166_57 #2514822
+        self.z_delta = 12506_27 #1246019
         self.x_scale = []
         self.y_scale = []
         self.z_scale = []
-        self.x_tip = []
-        self.y_tip = []
-        self.z_tip = []
-        self.z_tip_dist = []
 
     def description(self):
         return "Slicescope"
