@@ -23,6 +23,42 @@ from scipy.stats import norm
 from skimage import io, img_as_float
 from skimage.restoration import denoise_nl_means, estimate_sigma, denoise_tv_chambolle
 
+class Window:
+
+    def __init__(self, cam):
+
+        self.pvcam_instance = cam
+
+        self.window = Toplevel()
+
+        self.window_label = Label(self.window)
+        self.window_label.pack()
+
+        self.open_flag = True
+
+        thread = Thread(target = self.video_loop())
+        thread.setDaemon(True)
+        thread.start()
+
+        self.window.wm_protocol("WM_DELETE_WINDOW", self.stop_video)
+
+    def video_loop(self):
+
+        cap = self.pvcam_instance.get_frame()
+        img = Image.fromarray(cap)
+        photo_img = ImageTk.PhotoImage(image = img)
+
+        self.window_label.photo_image = photo_img
+        self.window_label.configure(image = photo_img)
+
+        if (self.open_flag == True):
+            self.window.after(10, self.video_loop)
+
+    def stop_video(self):
+        self.open_flag = False
+        self.window.destroy()
+
+
 class App(Tk):
 
     def __init__(self, slicescope, patchstar, cam):
@@ -30,6 +66,8 @@ class App(Tk):
         self.slicescope_instance = slicescope
         self.patchstar_instance = patchstar
         self.pvcam_instance = cam
+
+        self.separate_window = []
 
         self.open_flag = True
 
@@ -85,8 +123,8 @@ class App(Tk):
         #self.main_frame_label.pack_propagate(FALSE)
         self.main_frame = Frame(self, bg = main_frame_color)
         self.main_frame.pack()
-        self.main_frame_label = Label(self.main_frame)
-        self.main_frame_label.pack()
+        #self.main_frame_label = Label(self.main_frame)
+        #self.main_frame_label.pack()
 
         #Logo on top in sidebar
         #self.logo = Frame(self.sidebar, bg = sidebar_color, width = 100, height = 100, relief = RAISED, borderwidth = menu_border)
@@ -127,8 +165,8 @@ class App(Tk):
         #btn_box_crosshairs = Button(self.submenu_frame1, text = "Box Crosshairs", font = btn_font, width = btn_width, height = btn_height, command = self.box_crosshairs, relief = RAISED, borderwidth = btn_border)
         #btn_box_crosshairs.pack()
 
-        #btn_video_pop_out = Button(self.submenu_frame1, text = "Vid POP OUT", font = btn_font, width = btn_width, height = btn_height, command = self.video_pop_out, relief = RAISED, borderwidth = btn_border)
-        #btn_video_pop_out.pack()
+        btn_video_pop_out = Button(self.submenu_frame1, text = "Vid POP OUT", font = btn_font, width = btn_width, height = btn_height, command = self.separate_video_window, relief = RAISED, borderwidth = btn_border)
+        btn_video_pop_out.pack()
 
 
         self.label = Label(self.submenu_frame1, text = "Move Camera (um)", font = btn_font)
@@ -254,8 +292,19 @@ class App(Tk):
 
         return cap
 
+    def snapshot_function(self, label):
+        cap = self.pvcam_instance.get_frame()
+        img = Image.fromarray(cap)
+        photo_img = ImageTk.PhotoImage(image = img)
+
+        label.photo_image = photo_img
+        label.configure(image = photo_img)
+
+        return cap
+
     def open_camera(self):
         self.open_flag = True
+        #self.get_snapshot()
 
     def video(self):
 
@@ -264,13 +313,14 @@ class App(Tk):
         if (self.open_flag == True):
             self.main_frame_label.after(10, self.video)  #repeat same process after every 10 ms
 
+
     def stop_video(self):
         self.open_flag = False
+        self.main_frame_label.destroy()
 
-    def video_pop_out(self):
+    def separate_video_window(self):
 
-        if (self.open_flag == True):
-            self.pvcam_instance.video()
+        self.separate_window = Window(self.pvcam_instance)
 
     def calibration(self):
         self.slicescope_instance.calibration()
@@ -1065,7 +1115,8 @@ class App(Tk):
 
     def non_local_means_CV(self):
 
-        img = self.get_snapshot()
+        img = self.snapshot_function(self.separate_window.window_label)
+        #img = self.get_snapshot()
         #sigma_est = np.mean(estimate_sigma(img))
         #nlm = cv.fastNlMeansDenoising(img, None, h = 1.25*sigma_est, templateWindowSize = 7, searchWindowSize = 21)  #minimum h=3
 
@@ -1261,6 +1312,9 @@ class App(Tk):
 
         #self.high_mag_into_water()
 
+        #self.get_snapshot()
+
+
         step = 50_00
         self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
         #self.slicescope_instance.moveUp(self.slicescope_instance.z,step)
@@ -1271,6 +1325,8 @@ class App(Tk):
 
             self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(10_00))
 
+            #self.main_frame_label.after(10, self.get_snapshot())
+
             lines = self.high_mag_on_probe()
 
             if lines is not None:
@@ -1280,16 +1336,25 @@ class App(Tk):
 
             self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(10_00))
 
+            #self.main_frame_label.after(0, self.get_snapshot())
+
             lines = self.high_mag_on_probe()
 
             if np.isnan(lines).any() == False:
                 break
 
+        #self.main_frame_label.after(0, self.get_snapshot())
         self.high_mag_on_tip()
 
+    def update_gui(self):
+        self.main_frame_label.update()
 
     def high_mag_into_water(self):
         img_proc = Image_process()
+
+        #thread = Thread(target = self.update_gui())
+        #thread.setDaemon(True)
+        #thread.start()
 
         cnt = 0
 
@@ -1315,15 +1380,18 @@ class App(Tk):
                 cnt = cnt + 1
                 print(f"iteration = {cnt}")
 
-                if self.slicescope_instance.z < 1000_00:     #1000_00-2000_00
+                if self.slicescope_instance.z < 300_00: #1000_00:     #1000_00-2000_00
                     break
 
-                if self.slicescope_instance.z > 3000_00:    #3000_00
+                if self.slicescope_instance.z > 2000_00:    #3000_00
                     step = 1000_00
                 else:
                     step = 10_00
 
                 self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(step))
+
+                #self.update_gui()
+                self.separate_window.window_label.update()
 
             else:
 
@@ -1331,6 +1399,12 @@ class App(Tk):
 
                     hull_thresh, maxRect, maxEllipse, points, area = img_proc.detect_probe_high_mag(close)
 
+                    #self.get_snapshot()
+                    self.separate_window.video_loop()
+
+                    break
+
+                    '''
                     #print('Number of projected lines:')
                     #print(len(img_proc.houghline_p_list))
                     #print(img_proc.houghline_p_list.shape)
@@ -1353,11 +1427,11 @@ class App(Tk):
                         rotated_box = np.intp(rotated_box) #np.intp: Integer used for indexing (same as C ssize_t; normally either int32 or int64)
                         cv.drawContours(hull_thresh, [rotated_box], 0, (255,255,255), 3)
 
-                        cv.imshow('Hull Threshold', hull_thresh)
-                        cv.waitKey(3)
+                        #cv.imshow('Hull Threshold', hull_thresh)
+                        #cv.waitKey(3)
 
                         print('STOPPED on the probe')
-
+                    
                         line_len = []
 
                         for line in img_proc.houghline_p_list:
@@ -1374,8 +1448,8 @@ class App(Tk):
                             #line_len.append(d)
 
 
-                        cv.imshow('Edges with hough lines P',edges)
-                        cv.waitKey(5)
+                        #cv.imshow('Edges with hough lines P',edges)
+                        #cv.waitKey(5)
 
                         #print(line_len)
                         avg_line_len = np.mean(line_len)
@@ -1402,6 +1476,8 @@ class App(Tk):
                     else:
 
                         continue
+                    '''
+
 
     def high_mag_on_probe(self):
 
@@ -1430,7 +1506,9 @@ class App(Tk):
 
                 self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(step))
 
-                if self.slicescope_instance.z < 1000_00:  #500_00
+                self.main_frame_label.after(0, self.get_snapshot())
+
+                if self.slicescope_instance.z < 300_00: #1000_00:  #500_00
                     break
 
         return img_proc.houghline_p_list
@@ -1456,7 +1534,9 @@ class App(Tk):
 
                 self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,int(step))
 
-                if self.slicescope_instance.z > 2000_00:      #1000_00-3000_00
+                self.main_frame_label.after(0, self.get_snapshot())
+
+                if self.slicescope_instance.z > 1000_00:      #1000_00-3000_00
                     break
 
             elif np.isnan(img_proc.houghline_p_list).any() == True:
@@ -1466,12 +1546,14 @@ class App(Tk):
 
                 self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,int(step))
 
-                if self.slicescope_instance.z > 2000_00:      #1000_00-3000_00
+                self.main_frame_label.after(0, self.get_snapshot())
+
+                if self.slicescope_instance.z > 1000_00:      #1000_00-3000_00
                     break
 
             else:
 
-                if img_proc.houghline_p_list.shape[0] > 2:
+                if img_proc.houghline_p_list.shape[0] > 3:
 
                     #for line in img_proc.houghline_p_list:
                     #    x1,y1,x2,y2 = line[0]
