@@ -1303,10 +1303,10 @@ class App(Tk):
                 cnt = cnt + 1
                 print(f"iteration = {cnt}")
 
-                if self.slicescope_instance.z < 1000_00:     #1000_00-2000_00
+                if self.slicescope_instance.z < self.slicescope_instance.high_mag_z_min:     #1000_00-2000_00
                     break
 
-                if self.slicescope_instance.z > 3000_00:     #2000_00-3000_00
+                if self.slicescope_instance.z > 4000_00:     #2000_00-3000_00
                     step = 1000_00
                 else:
                     step = 10_00
@@ -1318,7 +1318,12 @@ class App(Tk):
 
             else:
 
+                #Save this coordinate to be used in high_mag_on_tip as upperbound
+
                 if img_proc.houghline_p_list.shape[0] > 1:
+
+                    self.slicescope_instance.high_mag_z_max = self.slicescope_instance.z
+                    print(f'Slicescope High Mag Z Max = {self.slicescope_instance.high_mag_z_max}')
 
                     hull_thresh, maxRect, maxEllipse, points, area = img_proc.detect_probe_high_mag(close)
 
@@ -1327,10 +1332,14 @@ class App(Tk):
 
                     break
 
-
     def high_mag_on_probe(self):
 
         img_proc = Image_process()
+
+        self.slicescope_instance.coordinates()
+
+        self.slicescope_instance.high_mag_z_max = self.slicescope_instance.z
+        print(f'Slicescope High Mag Z Max = {self.slicescope_instance.high_mag_z_max}')
 
         step = 10_00
 
@@ -1347,7 +1356,7 @@ class App(Tk):
 
         else:
 
-            num_segments = 5
+            num_segments = 8
 
             for cnt in range(num_segments):
 
@@ -1358,7 +1367,7 @@ class App(Tk):
                 #update the video feed in window_label
                 self.window.window_label.update()
 
-                if self.slicescope_instance.z < 1000_00:  #500_00
+                if self.slicescope_instance.z < self.slicescope_instance.high_mag_z_min:  #500_00
                     #update the video feed in window_label
                     self.window.window_label.update()
 
@@ -1371,7 +1380,26 @@ class App(Tk):
 
         img_proc = Image_process()
 
+        #Setup figure properties for matplotlib
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        ax.set(title = 'Convergence on the probe tip', xlabel = 'Detected lines index', ylabel = 'Number of lines')
+        plt.show(block=False)
+
+        #Move slicescope up until probe is in focus
+        #Calculate rolling average to find the minimum number of corners. This is when the probe is in focus.
+        xs = []
+        ys = []
+        moving_averages = []
+        focus_height = []
+
+        #thread = Thread(target = self.plot_graph(ax, xs, moving_averages))
+        thread = Thread(target = self.plot_graph(ax, xs, ys))
+        thread.setDaemon(True)
+        thread.start()
+
         cnt = 0
+        line_cnt = 0
         step = 1_00
 
         while True:
@@ -1391,7 +1419,7 @@ class App(Tk):
                 #update the video feed in window_label
                 self.window.window_label.update()
 
-                if self.slicescope_instance.z > 2000_00:      #1000_00-3000_00
+                if self.slicescope_instance.z > int(1.1*self.slicescope_instance.high_mag_z_max):
 
                     #update the video feed in window_label
                     self.window.window_label.update()
@@ -1408,7 +1436,7 @@ class App(Tk):
                 #update the video feed in window_label
                 self.window.window_label.update()
 
-                if self.slicescope_instance.z > 2000_00:      #1000_00-3000_00
+                if self.slicescope_instance.z > int(1.1*self.slicescope_instance.high_mag_z_max):
 
                     #update the video feed in window_label
                     self.window.window_label.update()
@@ -1417,7 +1445,185 @@ class App(Tk):
 
             else:
 
-                if img_proc.houghline_p_list.shape[0] > 3:
+                cnt = cnt + 1
+                print(f"iteration = {cnt}")
+
+                self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,int(step))
+
+                #update the video feed in window_label
+                self.window.window_label.update()
+
+                line_cnt = line_cnt + 1
+                print(f"line iteration = {line_cnt}")
+
+                num_lines = img_proc.houghline_p_list.shape[0]
+
+                xs.append(line_cnt)
+                ys.append(num_lines)
+                focus_height.append(self.slicescope_instance.z)
+
+                self.plot_graph(ax, xs, ys)
+
+
+                '''
+                window_size = 5
+
+                if len(ys) < window_size:
+                    moving_averages.append(np.nan)
+                else:
+                    #Calculate the average of current window
+                    window_average = round(np.sum(ys[-window_size:])/window_size)
+                    moving_averages.append(window_average)
+
+                #Plot using matplotlib
+                #These codes work to constantly update the plot in real time, but is slow.
+                #Moving averages real time graph
+                self.plot_graph(ax, xs, moving_averages)
+                '''
+
+                if self.slicescope_instance.z > self.slicescope_instance.high_mag_z_max:
+
+                    #Find the first minimum number of corners and use index to save the points and move slicescope to appropriate focus height
+                    max_convergence_index = ys.index(np.nanmax(ys))
+                    tip_in_focus_height = focus_height[max_convergence_index]
+                    self.slicescope_instance.moveAbsolute(self.slicescope_instance.x,self.slicescope_instance.y,int(tip_in_focus_height))
+
+                    print(f"Tip in Focus - Slicescope Z = {tip_in_focus_height}")
+
+                    #then go into detecting probe direction and tip
+
+                    close = self.clean_image()
+
+                    #continue from this line in the code below
+                    hull_thresh, maxRect, maxEllipse, points, area = img_proc.detect_probe_high_mag(close)
+
+
+                    #hull_thresh.shape[0] = height = y, hull_thresh[1] = width = x
+                    #height = hull_thresh.shape[0]
+                    #width = hull_thresh.shape[1]
+
+                    (x1,y1),(x2,y2), angle = img_proc.detect_probe_direction(hull_thresh, maxEllipse, points)
+
+                    #Calculate the rectangle box 'points' closest to x2,y2 from ellipse.
+
+                    #print(points)
+
+                    if (np.isnan(x2)) or (np.isnan(y2)):
+                        pass
+
+                    else:
+
+                        print('(x1,y1) = ', x1, y1)
+                        print('(x2,y2) = ', x2, y2)
+                        print('Angle = ', angle)
+
+                        img_wnd = Image_window(size = self.pvcam_instance.size)
+                        img_wnd.frame = self.pvcam_instance.get_frame()
+                        img_wnd.clear_overlay()
+
+                        height = img_wnd.frame.shape[0]
+                        width = img_wnd.frame.shape[1]
+
+                        filtered_points = []
+                        border = 10
+
+                        for k in range(len(points)):
+
+                            if (points[k][0] >= border) and (points[k][0] <= (int(width)-border)):
+                                if (points[k][1] >= border) and (points[k][1] <= (int(height)-border)):
+                                #At least one of the Box coordinates is away from an edge
+
+                                    filtered_points = np.append(filtered_points, [points[k][0],points[k][1]])
+
+                        filtered_points = np.reshape(filtered_points,[-1,2])
+
+                        #print(filtered_points)
+
+                        dist = []
+                        for p in range(len(filtered_points)):
+                            dist = np.append(dist, np.sqrt( ((x2-filtered_points[p][0])**2) + ((y2-filtered_points[p][1])**2) ))
+
+                        #print(dist)
+
+                        #Find the index with the smallest distance
+                        min_sum_index = np.argmin(dist)   #dist.index(min(dist)) for lists
+
+                        closest_rect_point_x = filtered_points[min_sum_index][0]
+                        closest_rect_point_y = filtered_points[min_sum_index][1]
+
+                        probe_tip_x = int(closest_rect_point_x)
+                        probe_tip_y = int(closest_rect_point_y)
+
+
+                        #Draw probe tip coordinate on window
+
+                        dot = cv.circle(img_wnd.frame,(probe_tip_x,probe_tip_y),radius=10,color=(255),thickness=10)
+                        dot_copy = dot.copy()
+                        dot_arrow = cv.arrowedLine(dot_copy,(x1,y1),(x2,y2),color=(0),thickness=10)
+
+                        font = cv.FONT_HERSHEY_SIMPLEX
+                        fontScale = 1
+                        color = (0)
+                        thickness = 2
+
+                        org1 = (0,100)
+                        text1 = 'Probe tip coordinate: (' + str(probe_tip_x)+ ', ' + str(probe_tip_y) + ')'
+                        dot = cv.putText(dot, text1, org1, font, fontScale, color, thickness, cv.LINE_AA, False)
+                        dot_arrow = cv.putText(dot_arrow, text1, org1, font, fontScale, color, thickness, cv.LINE_AA, False)
+
+                        format_angle = format(angle, '0.2f')
+                        org2 = (0,150)
+                        text2 = 'Probe angle w.r.t. Y-axis: ' + str(format_angle) + ' deg'
+                        dot = cv.putText(dot, text2, org2, font, fontScale, color, thickness, cv.LINE_AA, False)
+                        dot_arrow = cv.putText(dot_arrow, text2, org2, font, fontScale, color, thickness, cv.LINE_AA, False)
+
+                        #Show probe tip in separate window
+                        cv.imshow('Probe tip', dot)
+                        cv.imshow('Probe direction', dot_arrow)
+                        cv.waitKey(3)
+
+                        #Save image to file
+                        cv.imwrite('./probe_tip.png', dot)
+                        cv.imwrite('./probe_direction.png', dot_arrow)
+
+                        #Window_label is now live again. Save the coordinates for Slicescope and Patchstar.
+
+                        self.slicescope_instance.coordinates()
+                        print(f'Slicescope position - x: {self.slicescope_instance.x}')
+                        print(f'Slicescope position - y: {self.slicescope_instance.y}')
+                        print(f'Slicescope position - z: {self.slicescope_instance.z}')
+
+                        self.slicescope_instance.x_tip = self.slicescope_instance.x
+                        self.slicescope_instance.y_tip = self.slicescope_instance.y
+                        self.slicescope_instance.z_tip = self.slicescope_instance.z
+
+                        self.patchstar_instance.coordinates()
+                        print(f'Micromanipulator position - x: {self.patchstar_instance.x}')
+                        print(f'Micromanipulator position - y: {self.patchstar_instance.y}')
+                        print(f'Micromanipulator position - z: {self.patchstar_instance.z}')
+                        print(f'Micromanipulator position - a: {self.patchstar_instance.a}')
+
+                        self.patchstar_instance.tip_coord_x = probe_tip_x
+                        self.patchstar_instance.tip_coord_y = probe_tip_y
+                        self.patchstar_instance.tip_angle = angle
+
+                        print(f'Probe tip coordinate = ({self.patchstar_instance.tip_coord_x} , {self.patchstar_instance.tip_coord_y})')
+                        print(f'Probe tip angle = {self.patchstar_instance.tip_angle}')
+
+                        self.patchstar_instance.x_tip = self.patchstar_instance.x
+                        self.patchstar_instance.y_tip = self.patchstar_instance.y
+                        self.patchstar_instance.z_tip = self.patchstar_instance.z
+                        self.patchstar_instance.a_tip = self.patchstar_instance.a
+
+                        break
+
+                else:
+
+                    continue
+
+
+                '''
+                if img_proc.houghline_p_list.shape[0] > 4:
 
                     #for line in img_proc.houghline_p_list:
                     #    x1,y1,x2,y2 = line[0]
@@ -1516,6 +1722,7 @@ class App(Tk):
                 else:
 
                     continue
+                '''
 
 
     def high_mag_autofocus(self):
@@ -1528,8 +1735,8 @@ class App(Tk):
 
         #self.high_mag_into_water()
 
-        step = 50_00
-        self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
+        #step = 50_00
+        #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
         #self.slicescope_instance.moveUp(self.slicescope_instance.z,step)
 
         lines = self.high_mag_on_probe()

@@ -39,6 +39,11 @@ class Slicescope:
         self.x_scale = []
         self.y_scale = []
         self.z_scale = []
+        self.x_tip = []
+        self.y_tip = []
+        self.z_tip = []
+        self.high_mag_z_max = 2230_00
+        self.high_mag_z_min = 0
 
     def description(self):
         return "Slicescope"
@@ -185,6 +190,9 @@ class Slicescope:
         #Move slicescope back to center
         self.moveRelativeNoLimit(self.x,self.y,self.z,0,0,self.z_delta)
         self.z_origin = self.z
+
+        #Set High Magnification lower limit (add 4mm of clearance to enable probe to fit. Distance is a little more than the thickness of the bottom of the chamber)
+        self.high_mag_z_min = int(self.z_min + 4000_00)
 
     def moveAbsolute(self,abs_x,abs_y,abs_z):   
 
