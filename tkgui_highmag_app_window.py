@@ -19,6 +19,8 @@ from threading import Thread
 from skimage import io, img_as_float
 from skimage.restoration import denoise_nl_means, estimate_sigma, denoise_tv_chambolle
 
+from scipy.signal import find_peaks
+
 class Window:
 
     def __init__(self, slicescope, patchstar, cam):
@@ -251,7 +253,10 @@ class App(Tk):
         btn_high_mag_on_tip = Button(self.submenu_frame3, text = "Focus on tip", font = btn_font, width = btn_width, height = btn_height, command = self.high_mag_on_tip, relief = RAISED, borderwidth = btn_border)
         btn_high_mag_on_tip.pack()
 
-        btn_high_mag_autofocus = Button(self.submenu_frame3, text = "Autofocus", font = btn_font, width = btn_width, height = btn_height, command = self.high_mag_autofocus, relief = RAISED, borderwidth = btn_border)
+        btn_minor_high_mag_autofocus = Button(self.submenu_frame3, text = "Minor Autofocus", font = btn_font, width = btn_width, height = btn_height, command = self.minor_high_mag_autofocus, relief = RAISED, borderwidth = btn_border)
+        btn_minor_high_mag_autofocus.pack()
+
+        btn_high_mag_autofocus = Button(self.submenu_frame3, text = "Major Autofocus", font = btn_font, width = btn_width, height = btn_height, command = self.high_mag_autofocus, relief = RAISED, borderwidth = btn_border)
         btn_high_mag_autofocus.pack()
 
 
@@ -1332,6 +1337,51 @@ class App(Tk):
 
                     break
 
+
+    def minor_high_mag_on_probe(self):
+
+        img_proc = Image_process()
+
+        self.slicescope_instance.coordinates()
+
+        self.slicescope_instance.high_mag_z_max = self.slicescope_instance.z
+        print(f'Slicescope High Mag Z Max = {self.slicescope_instance.high_mag_z_max}')
+
+        step = 10_00
+
+        close = self.clean_image()
+
+        edges = cv.Canny(close, 30, 200)
+        img_proc.houghline_p_list,img_proc.houghline_intersect_list = img_proc.hough_lines_intersect(edges, line_vote_threshold = 200, min_line_length = 50, max_line_gap = 5)
+
+        if img_proc.houghline_p_list is None:
+            pass
+
+        elif np.isnan(img_proc.houghline_p_list).any() == True:
+            pass
+
+        else:
+
+            num_segments = 2
+
+            for cnt in range(num_segments):
+
+                print(f"iteration = {cnt+1}")
+
+                self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(step))
+
+                #update the video feed in window_label
+                self.window.window_label.update()
+
+                if self.slicescope_instance.z < self.slicescope_instance.high_mag_z_min:
+                    #update the video feed in window_label
+                    self.window.window_label.update()
+
+                    break
+
+        return img_proc.houghline_p_list
+
+
     def high_mag_on_probe(self):
 
         img_proc = Image_process()
@@ -1367,7 +1417,7 @@ class App(Tk):
                 #update the video feed in window_label
                 self.window.window_label.update()
 
-                if self.slicescope_instance.z < self.slicescope_instance.high_mag_z_min:  #500_00
+                if self.slicescope_instance.z < self.slicescope_instance.high_mag_z_min:
                     #update the video feed in window_label
                     self.window.window_label.update()
 
@@ -1483,10 +1533,16 @@ class App(Tk):
 
                 if self.slicescope_instance.z > self.slicescope_instance.high_mag_z_max:
 
-                    #Find the first minimum number of corners and use index to save the points and move slicescope to appropriate focus height
-                    max_convergence_index = ys.index(np.nanmax(ys))
-                    tip_in_focus_height = focus_height[max_convergence_index]
+                    #Find the first peak in the number of lines and use index to move slicescope to appropriate focus height
+                    peaks,_ = find_peaks(ys, height=0)
+                    peak_tip_index = peaks[0]
+                    tip_in_focus_height = focus_height[peak_tip_index]
                     self.slicescope_instance.moveAbsolute(self.slicescope_instance.x,self.slicescope_instance.y,int(tip_in_focus_height))
+
+                    #Find the maximum number of lines and use index to move slicescope to appropriate focus height
+                    #max_convergence_index = ys.index(np.nanmax(ys))
+                    #tip_in_focus_height = focus_height[max_convergence_index]
+                    #self.slicescope_instance.moveAbsolute(self.slicescope_instance.x,self.slicescope_instance.y,int(tip_in_focus_height))
 
                     print(f"Tip in Focus - Slicescope Z = {tip_in_focus_height}")
 
@@ -1622,109 +1678,6 @@ class App(Tk):
                     continue
 
 
-                '''
-                if img_proc.houghline_p_list.shape[0] > 4:
-
-                    #for line in img_proc.houghline_p_list:
-                    #    x1,y1,x2,y2 = line[0]
-                    #    edges = cv.line(edges,(x1,y1),(x2,y2),(255,255,255),5)
-                    
-                    #cv.imshow('Edges with hough lines P',edges)
-                    #cv.waitKey(5)
-
-                    hull_thresh, maxRect, maxEllipse, points, area = img_proc.detect_probe_high_mag(close)
-
-                    #hull_thresh.shape[0] = height = y, hull_thresh[1] = width = x
-                    #height = hull_thresh.shape[0]
-                    #width = hull_thresh.shape[1]
-
-                    (x1,y1),(x2,y2), angle = img_proc.detect_probe_direction(hull_thresh, maxEllipse, points)
-
-                    #Calculate the rectangle box 'points' closest to x2,y2 from ellipse.
-
-                    #print(points)
-
-                    if (np.isnan(x2)) or (np.isnan(y2)):
-                        pass
-
-                    else:
-
-                        print('(x1,y1) = ', x1, y1)
-                        print('(x2,y2) = ', x2, y2)
-                        print('Angle = ', angle)
-
-                        img_wnd = Image_window(size = self.pvcam_instance.size)
-                        img_wnd.frame = self.pvcam_instance.get_frame()
-                        img_wnd.clear_overlay()
-
-                        height = img_wnd.frame.shape[0]
-                        width = img_wnd.frame.shape[1]
-
-                        filtered_points = []
-                        border = 10
-
-                        for k in range(len(points)):
-
-                            if (points[k][0] >= border) and (points[k][0] <= (int(width)-border)):
-                                if (points[k][1] >= border) and (points[k][1] <= (int(height)-border)):
-                                #At least one of the Box coordinates is away from an edge
-
-                                    filtered_points = np.append(filtered_points, [points[k][0],points[k][1]])
-
-                        filtered_points = np.reshape(filtered_points,[-1,2])
-
-                        #print(filtered_points)
-
-                        dist = []
-                        for p in range(len(filtered_points)):
-                            dist = np.append(dist, np.sqrt( ((x2-filtered_points[p][0])**2) + ((y2-filtered_points[p][1])**2) ))
-
-                        #print(dist)
-
-                        #Find the index with the smallest distance
-                        min_sum_index = np.argmin(dist)   #dist.index(min(dist)) for lists
-
-                        closest_rect_point_x = filtered_points[min_sum_index][0]
-                        closest_rect_point_y = filtered_points[min_sum_index][1]
-
-                        probe_tip_x = int(closest_rect_point_x)
-                        probe_tip_y = int(closest_rect_point_y)
-
-                        dot = cv.circle(img_wnd.frame,(probe_tip_x,probe_tip_y),radius=10,color=(255,255,255),thickness=10)
-                        cv.imshow('Probe tip', dot)
-                        cv.waitKey(3)
-
-                        self.slicescope_instance.coordinates()
-                        print(f'Slicescope position - x: {self.slicescope_instance.x}')
-                        print(f'Slicescope position - y: {self.slicescope_instance.y}')
-                        print(f'Slicescope position - z: {self.slicescope_instance.z}')
-
-                        self.patchstar_instance.coordinates()
-                        print(f'Micromanipulator position - x: {self.patchstar_instance.x}')
-                        print(f'Micromanipulator position - y: {self.patchstar_instance.y}')
-                        print(f'Micromanipulator position - z: {self.patchstar_instance.z}')
-                        print(f'Micromanipulator position - a: {self.patchstar_instance.a}')
-
-                        self.patchstar_instance.tip_coord_x = probe_tip_x
-                        self.patchstar_instance.tip_coord_y = probe_tip_y
-                        self.patchstar_instance.tip_angle = angle
-
-                        print(f'Probe tip coordinate = ({self.patchstar_instance.tip_coord_x} , {self.patchstar_instance.tip_coord_y})')
-                        print(f'Probe tip angle = {self.patchstar_instance.tip_angle}')
-
-                        self.patchstar_instance.x_tip = self.patchstar_instance.x
-                        self.patchstar_instance.y_tip = self.patchstar_instance.y
-                        self.patchstar_instance.z_tip = self.patchstar_instance.z
-                        self.patchstar_instance.a_tip = self.patchstar_instance.a
-
-                    break
-
-                else:
-
-                    continue
-                '''
-
-
     def high_mag_autofocus(self):
 
         #High mag autofocus can use img_proc.houghline_p_list == None as the parameter.
@@ -1739,9 +1692,13 @@ class App(Tk):
         #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
         #self.slicescope_instance.moveUp(self.slicescope_instance.z,step)
 
+        nan_none_count = 0
+
         lines = self.high_mag_on_probe()
 
         while lines is None:
+
+            nan_none_count = nan_none_count + 1
 
             self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(10_00))
 
@@ -1753,7 +1710,12 @@ class App(Tk):
             if lines is not None:
                 break
 
+            if nan_none_count > 3:
+                break
+
         while np.isnan(lines).any() == True:
+
+            nan_none_count = nan_none_count + 1
 
             self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(10_00))
 
@@ -1763,6 +1725,68 @@ class App(Tk):
             lines = self.high_mag_on_probe()
 
             if np.isnan(lines).any() == False:
+                break
+
+            if nan_none_count > 3:
+                break
+
+        #update the video feed in window_label
+        self.window.window_label.update()
+
+        self.high_mag_on_tip()
+
+
+
+    def minor_high_mag_autofocus(self):
+
+        #High mag autofocus can use img_proc.houghline_p_list == None as the parameter.
+        #Steps are similar to isNan for focus down and focus up for low mag. Just use img_proc.houghline_p_list from hough lines intersect!
+        #Go down and detect from None to Not None.
+        #Go down further and detect from Not None to None.
+        #Go up and detect from None to Not None.
+
+        #self.high_mag_into_water()
+
+        #step = 50_00
+        #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
+        #self.slicescope_instance.moveUp(self.slicescope_instance.z,step)
+
+        nan_none_count = 0
+
+        lines = self.minor_high_mag_on_probe()
+
+        while lines is None:
+
+            nan_none_count = nan_none_count + 1
+
+            self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(10_00))
+
+            #update the video feed in window_label
+            self.window.window_label.update()
+
+            lines = self.minor_high_mag_on_probe()
+
+            if lines is not None:
+                break
+
+            if nan_none_count > 3:
+                break
+
+        while np.isnan(lines).any() == True:
+
+            nan_none_count = nan_none_count + 1
+
+            self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-int(10_00))
+
+            #update the video feed in window_label
+            self.window.window_label.update()
+
+            lines = self.minor_high_mag_on_probe()
+
+            if np.isnan(lines).any() == False:
+                break
+
+            if nan_none_count > 3:
                 break
 
         #update the video feed in window_label
