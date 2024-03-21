@@ -412,6 +412,9 @@ class Image_process:
         #for corner in range(len(corners)):
         #    cv.circle(input_image, (corners[corner][0],corners[corner][1]), 2, (255), 2) 
 
+        #cv.imshow('Detected Corners',input_image)
+        #cv.waitKey(1)
+
         corners = np.reshape(corners,(-1,2))
 
         return len(corners),corners   #return the total number of corners coordinates
@@ -426,7 +429,21 @@ class Image_process:
         #print(height) #[0]
         #print(width)  #[1]
 
-        thresh_inv = cv.threshold(img_capture, 150, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)[1]  #150 is the best value
+        #Must crop image due to Condenser lens. The condenser is close to the chamber where the sample is located and 
+        #the lens of the condenser is creating a circular effect that is picked up in the background of the low magnification objective.
+        crop_percent = 0.3
+        lower_w = int(crop_percent*width)
+        upper_w = int((1-crop_percent)*width)
+        lower_h = int(crop_percent*height)
+        upper_h = int((1-crop_percent)*height)
+
+        img_capture_copy = img_capture.copy()
+        cropped_img = img_capture_copy[lower_h:upper_h,lower_w:upper_w]
+
+        cropped_height,cropped_width = cropped_img.shape
+
+        thresh_inv = cv.threshold(cropped_img, 150, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)[1]  #150 is the best value
+        #thresh_inv = cv.threshold(img_capture, 150, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)[1]  #150 is the best value
         #cv.imshow('Threshold Image',thresh_inv)
         #cv.waitKey(3)
 
@@ -440,7 +457,7 @@ class Image_process:
         # erosion followed by dilation
         closing_img = cv.morphologyEx(thresh_inv, cv.MORPH_CLOSE, kernel)
         #cv.imshow('Closing Image', closing_img)
-        #cv.waitKey()
+        #cv.waitKey(3)
 
         inverse_hierarchy = inverse_hierarchy[0]
         #print(f"Contours Hierarchy = {inverse_hierarchy}")
@@ -460,28 +477,39 @@ class Image_process:
 
         #print(hull_list)
 
-        cv.drawContours(img_capture, hull_list, -1, (0), thickness=3)
+        #cv.drawContours(img_capture, hull_list, -1, (0), thickness=3)
         #cv.imshow('Convex Hull Fill',img_capture)
-        #cv.waitKey()
+        cv.drawContours(cropped_img, hull_list, -1, (0), thickness=3)
+        #cv.imshow('Convex Hull Fill',cropped_img)       
+        #cv.waitKey(3)
 
-        cv.fillPoly(img_capture, hull_list, (0))
+
+        #cv.fillPoly(img_capture, hull_list, (0))
         #cv.imshow('Convex Hull Fill Poly',img_capture)
-        #cv.waitKey() 
+        cv.fillPoly(cropped_img, hull_list, (0))
+        #cv.imshow('Convex Hull Fill Poly',cropped_img)
+        #cv.waitKey(3) 
 
         #gauss_blur = cv.GaussianBlur(img_wnd.frame,(5,5),0)
         #hull_thresh = cv.threshold(gauss_blur, 150, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)[1]  #150 is the best value
-        hull_thresh = cv.threshold(img_capture, 150, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)[1]  #150 is the best value
+        #hull_thresh = cv.threshold(img_capture, 150, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)[1]  #150 is the best value
+        hull_thresh = cv.threshold(cropped_img, 150, 255, cv.THRESH_BINARY_INV+cv.THRESH_OTSU)[1]  #150 is the best value
         #cv.imshow('Hull Threshold',hull_thresh)
-        #cv.waitKey()
+        #cv.waitKey(3)
 
         bounding_cnts, bounding_cnts_hierarchy = cv.findContours(hull_thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
         #print(bounding_cnts)
+
+        #cv.drawContours(cropped_img, bounding_cnts, -1, (0), thickness=3)
+        #cv.imshow('Contours on Hull Thresh',cropped_img)       
+        #cv.waitKey(3)
 
         #Only keep the maximum rectangle and ellipse 
         tmp=0
         #maxRect = []
         maxEllipse = []
         points = np.zeros((4,2), dtype=int)
+        #cropped_points = np.zeros((4,2), dtype=int)
 
         # Find the rotated rectangles and ellipses for each contour
         minRect = [None]*len(bounding_cnts)
@@ -510,11 +538,17 @@ class Image_process:
                         if box[k][1] < 0:
                             box[k][1] = 0
 
-                        if box[k][0] > int(width):
-                            box[k][0] = int(width)
+                        if box[k][0] > int(cropped_width):
+                            box[k][0] = int(cropped_width)
 
-                        if box[k][1] > int(height):
-                            box[k][1] = int(height)
+                        if box[k][1] > int(cropped_height):
+                            box[k][1] = int(cropped_height)
+
+                        #if box[k][0] > int(width):
+                        #    box[k][0] = int(width)
+
+                        #if box[k][1] > int(height):
+                        #    box[k][1] = int(height)
 
                     #Shoelace formula to calculate area of Polygon
                     area=0
@@ -522,12 +556,15 @@ class Image_process:
                         j = (k + 1) % len(box)
                         area += box[k][0] * box[j][1]
                         area -= box[j][0] * box[k][1]
-                        
+
                     area = abs(area) / 2
                     #print(f'PolyArea = {area}')
 
-                    screen_size = int(width)*int(height)
-                    if area>tmp and area<(screen_size/2):
+                    #screen_size = int(width)*int(height)
+                    #if area>tmp and area<(screen_size/2):
+
+                    screen_size = int(cropped_width)*int(cropped_height)
+                    if area>tmp and area<screen_size:
                         tmp=area
                         #maxRect = minRect[i]
                         maxEllipse = minEllipse[i]
@@ -540,10 +577,24 @@ class Image_process:
                         points[3][0] = box[3][0]
                         points[3][1] = box[3][1]
 
+                        #Coordinate calculation helped verify the offset values
+                        #cropped_points[0][0] = lower_w + box[0][0]
+                        #cropped_points[0][1] = lower_h + box[0][1]
+                        #cropped_points[1][0] = lower_w + box[1][0]
+                        #cropped_points[1][1] = lower_h + box[1][1]
+                        #cropped_points[2][0] = lower_w + box[2][0]
+                        #cropped_points[2][1] = lower_h + box[2][1]
+                        #cropped_points[3][0] = lower_w + box[3][0]
+                        #cropped_points[3][1] = lower_h + box[3][1]
+
+        #print('points:')
         #print(points)
+        #print('cropped points:')
+        #print(cropped_points)
+        #print('maxEllipse:')
         #print(maxEllipse)
 
-        return maxEllipse, points
+        return cropped_img, maxEllipse, points, lower_w, lower_h
     
     def detect_probe_direction(self, img_capture, maxEllipse, points):
         
@@ -621,7 +672,7 @@ class Image_process:
                     #Q2
                     if edge_points[0][1] < (int(height)/2) or edge_points[1][1] < (int(height)/2):
                         print("Q2 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 + y_move
@@ -636,7 +687,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][1] > (int(height)/2) or edge_points[1][1] > (int(height)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 + y_move
@@ -652,7 +703,7 @@ class Image_process:
                     #Q2
                     if edge_points[0][1] < (int(height)/2) or edge_points[1][1] < (int(height)/2):
                         print("Q2 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 - y_move
@@ -667,7 +718,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][1] > (int(height)/2) or edge_points[1][1] > (int(height)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 - y_move
@@ -684,7 +735,7 @@ class Image_process:
                     #Q2
                     if edge_points[0][1] < (int(height)/2) and edge_points[1][1] < (int(height)/2):
                         print("Q2 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 + y_move
@@ -699,7 +750,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][1] > (int(height)/2) and edge_points[1][1] > (int(height)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 + y_move
@@ -714,14 +765,14 @@ class Image_process:
                     #Between Q2 and Q3
                     if edge_points[0][1] < (int(height)/2) and edge_points[1][1] > (int(height)/2):
                         print("NOT Q2 or Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'NOT Q2 or Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'NOT Q2 or Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = np.nan
                         y2 = np.nan
 
                     if edge_points[0][1] > (int(height)/2) and edge_points[1][1] < (int(height)/2):
                         print("NOT Q2 or Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'NOT Q2 or Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'NOT Q2 or Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = np.nan
                         y2 = np.nan
@@ -742,7 +793,7 @@ class Image_process:
                     #Q1
                     if edge_points[0][1] < (int(height)/2) or edge_points[1][1] < (int(height)/2):
                         print("Q1 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -757,7 +808,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][1] > (int(height)/2) or edge_points[1][1] > (int(height)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -773,7 +824,7 @@ class Image_process:
                     #Q1
                     if edge_points[0][1] < (int(height)/2) or edge_points[1][1] < (int(height)/2):
                         print("Q1 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 + y_move
@@ -788,7 +839,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][1] > (int(height)/2) or edge_points[1][1] > (int(height)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 + y_move
@@ -804,7 +855,7 @@ class Image_process:
                     #Q1
                     if edge_points[0][1] < (int(height)/2) and edge_points[1][1] < (int(height)/2):
                         print("Q1 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = x1 - x_move
                         y2 = y1 - y_move
@@ -819,7 +870,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][1] > (int(height)/2) and edge_points[1][1] > (int(height)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = x1 - x_move
                         y2 = y1 - y_move
@@ -834,14 +885,14 @@ class Image_process:
                     #Between Q1 and Q4
                     if edge_points[0][1] < (int(height)/2) and edge_points[1][1] > (int(height)/2):
                         print("NOT Q1 or Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'NOT Q1 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'NOT Q1 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = np.nan
                         y2 = np.nan
 
                     if edge_points[0][1] > (int(height)/2) and edge_points[1][1] < (int(height)/2):
                         print("NOT Q1 or Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'NOT Q1 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'NOT Q1 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = np.nan
                         y2 = np.nan
@@ -862,7 +913,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][0] < (int(width)/2) or edge_points[1][0] < (int(width)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -877,7 +928,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][0] > (int(width)/2) or edge_points[1][0] > (int(width)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -893,7 +944,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][0] < (int(width)/2) or edge_points[1][0] < (int(width)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 - y_move
@@ -908,7 +959,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][0] > (int(width)/2) or edge_points[1][0] > (int(width)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 - y_move
@@ -924,7 +975,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][0] < (int(width)/2) and edge_points[1][0] < (int(width)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
         
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -939,7 +990,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][0] > (int(width)/2) and edge_points[1][0] > (int(width)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -954,14 +1005,14 @@ class Image_process:
                     #Between Q3 and Q4
                     if edge_points[0][0] < (int(width)/2) and edge_points[1][0] > (int(width)/2):
                         print("NOT Q3 or Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'NOT Q3 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'NOT Q3 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = np.nan
                         y2 = np.nan
 
                     if edge_points[0][0] > (int(width)/2) and edge_points[1][0] < (int(width)/2):
                         print("NOT Q3 or Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'NOT Q3 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'NOT Q3 or Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (center_of_screen[0],center_of_screen[1]), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x2 = np.nan
                         y2 = np.nan
@@ -972,7 +1023,7 @@ class Image_process:
                     #Q1
                     if edge_points[0][0] > (int(width)/2) and edge_points[1][1] < (int(height)/2):
                         print("Q1 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 + y_move
@@ -989,7 +1040,7 @@ class Image_process:
                     #Q1
                     if edge_points[0][1] < (int(height)/2) and edge_points[1][0] < (int(width)/2):
                         print("Q1 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q1 = ' + '{:.2f}'.format(maxEllipse[2]), (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 - x_move
                         y_check = y1 + y_move
@@ -1007,7 +1058,7 @@ class Image_process:
                     #Q2
                     if edge_points[0][1] < (int(height)/2) and edge_points[1][0] < (int(width)/2):
                         print("Q2 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA)
+                        #cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA)
 
                         x_check = x1 + x_move
                         y_check = y1 + y_move
@@ -1024,7 +1075,7 @@ class Image_process:
                     #Q2
                     if edge_points[1][1] < (int(height)/2) and edge_points[0][0] < (int(width)/2):
                         print("Q2 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA)
+                        #cv.putText(img_capture, 'Q2 = ' + '{:.2f}'.format(maxEllipse[2]), (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA)
 
                         x_check = x1 + x_move
                         y_check = y1 + y_move
@@ -1042,7 +1093,7 @@ class Image_process:
                     #Q3
                     if edge_points[0][1] > (int(height)/2) and edge_points[1][0] < (int(width)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 - y_move
@@ -1059,7 +1110,7 @@ class Image_process:
                     #Q3
                     if edge_points[1][1] > (int(height)/2) and edge_points[0][0] < (int(width)/2):
                         print("Q3 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+                        #cv.putText(img_capture, 'Q3 = ' + '{:.2f}'.format(maxEllipse[2]), (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
                         x_check = x1 + x_move
                         y_check = y1 - y_move
@@ -1077,7 +1128,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][0] > (int(width)/2) and edge_points[1][1] > (int(height)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA)
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA)
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -1094,7 +1145,7 @@ class Image_process:
                     #Q4
                     if edge_points[0][1] > (int(height)/2) and edge_points[1][0] > (int(width)/2):
                         print("Q4 -> Angle = " + '{:.2f}'.format(maxEllipse[2]) + "\n")
-                        cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA)
+                        #cv.putText(img_capture, 'Q4 = ' + '{:.2f}'.format(maxEllipse[2]), (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA)
 
                         x_check = x1 - x_move
                         y_check = y1 - y_move
@@ -1146,22 +1197,22 @@ class Image_process:
         #Q1
         if x > (int(width)/2) and y < (int(height)/2):
             print("Q1 " + "\n")
-            cv.putText(img_capture, 'Q1', (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+            #cv.putText(img_capture, 'Q1', (q1_x,q1_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
         #Q2
         if x < (int(width)/2) and y < (int(height)/2):
             print("Q2" + "\n")
-            cv.putText(img_capture, 'Q2', (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+            #cv.putText(img_capture, 'Q2', (q2_x,q2_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
         #Q3
         if x < (int(width)/2) and y > (int(height)/2):
             print("Q3" + "\n")
-            cv.putText(img_capture, 'Q3', (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+            #cv.putText(img_capture, 'Q3', (q3_x,q3_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
         #Q4
         if x > (int(width)/2) and y > (int(height)/2):
             print("Q4" + "\n")
-            cv.putText(img_capture, 'Q4', (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
+            #cv.putText(img_capture, 'Q4', (q4_x,q4_y), font, fontScale, colorText, thickness, cv.LINE_AA) 
 
         #Calculate delta of x,y point to center of screen
         delta_x_from_center = int(x-center_of_screen[0])
@@ -1218,8 +1269,8 @@ class Image_process:
         #cv.waitKey() 
 
         hull_thresh = cv.threshold(closing_img, 150, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)[1]  #150 is the best value
-        cv.imshow('Hull Threshold',hull_thresh)
-        cv.waitKey(3)
+        #cv.imshow('Hull Threshold',hull_thresh)
+        #cv.waitKey(3)
 
         bounding_cnts, bounding_cnts_hierarchy = cv.findContours(hull_thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
         #print(bounding_cnts)

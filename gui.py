@@ -10,6 +10,7 @@ Bioptix Ltd.
 
 #Classes
 from slicescope import Slicescope
+from condenser import Condenser
 from patchstar import Patchstar
 from pvcam import PVCAM
 #from tkgui import App
@@ -27,6 +28,13 @@ def main():
     slicescope.coordinates()
     print(f"Slicescope values X = {slicescope.x}, Y = {slicescope.y}, Z = {slicescope.z}")
 
+    print('-----Condenser-----')
+
+    condenser = Condenser('COM4')
+
+    condenser.coordinates()
+    print(f"Condenser value Z = {condenser.z}")
+
     print('-----Micromanipulator-----')
 
     patchstar = Patchstar('COM7')
@@ -39,7 +47,7 @@ def main():
     cam = PVCAM()
 
     #GUI
-    root = App(slicescope, patchstar, cam)
+    root = App(slicescope, condenser, patchstar, cam)
     root.mainloop()
 
     #Close and disconnect all equipment
@@ -47,6 +55,8 @@ def main():
     cam.disconnect()
 
     patchstar.close()
+
+    condenser.close()
 
     slicescope.close()
 

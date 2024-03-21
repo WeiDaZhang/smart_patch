@@ -23,9 +23,10 @@ from scipy.signal import find_peaks
 
 class Window:
 
-    def __init__(self, slicescope, patchstar, cam):
+    def __init__(self, slicescope, condenser, patchstar, cam):
 
         self.slicescope_instance = slicescope
+        self.condenser_instance = condenser
         self.patchstar_instance = patchstar
         self.pvcam_instance = cam
 
@@ -64,9 +65,10 @@ class Window:
 
 class App(Tk):
 
-    def __init__(self, slicescope, patchstar, cam):
+    def __init__(self, slicescope, condenser, patchstar, cam):
 
         self.slicescope_instance = slicescope
+        self.condenser_instance = condenser
         self.patchstar_instance = patchstar
         self.pvcam_instance = cam
 
@@ -190,18 +192,18 @@ class App(Tk):
 
     ################################################################
 
-        #self.submenu_frame2 = Frame(self.sidebar, bg = submenu_color, relief = RAISED, borderwidth = menu_border)
-        #self.submenu_frame2.pack()
-        #self.submenu_frame_label2 = Label(self.submenu_frame2, text = "Low Mag", font = ("Arial",15,"bold"), padx=38)
-        #self.submenu_frame_label2.pack()
+        self.submenu_frame2 = Frame(self.sidebar, bg = submenu_color, relief = RAISED, borderwidth = menu_border)
+        self.submenu_frame2.pack()
+        self.submenu_frame_label2 = Label(self.submenu_frame2, text = "Low Mag", font = ("Arial",15,"bold"), padx=38)
+        self.submenu_frame_label2.pack()
 
-        #btn_slicescope_calibration = Button(self.submenu_frame2, text = "Slicescope CAL", font = btn_font, width = btn_width, height = btn_height, command = self.slicescope_calibration, relief = RAISED, borderwidth = btn_border)
-        #btn_slicescope_calibration.pack()
-        #btn_patchstar_calibration = Button(self.submenu_frame2, text = "Patchstar CAL", font = btn_font, width = btn_width, height = btn_height, command = self.patchstar_calibration, relief = RAISED, borderwidth = btn_border)
-        #btn_patchstar_calibration.pack()
+        btn_slicescope_calibration = Button(self.submenu_frame2, text = "Slicescope CAL", font = btn_font, width = btn_width, height = btn_height, command = self.slicescope_calibration, relief = RAISED, borderwidth = btn_border)
+        btn_slicescope_calibration.pack()
+        btn_patchstar_calibration = Button(self.submenu_frame2, text = "Patchstar CAL", font = btn_font, width = btn_width, height = btn_height, command = self.patchstar_calibration, relief = RAISED, borderwidth = btn_border)
+        btn_patchstar_calibration.pack()
 
-        #btn_autofocus = Button(self.submenu_frame2, text = "AUTOfocus", font = btn_font, width = btn_width, height = btn_height, command = self.autofocus, relief = RAISED, borderwidth = btn_border)
-        #btn_autofocus.pack()
+        btn_autofocus = Button(self.submenu_frame2, text = "AUTOfocus", font = btn_font, width = btn_width, height = btn_height, command = self.autofocus, relief = RAISED, borderwidth = btn_border)
+        btn_autofocus.pack()
 
         #btn_harris_corner = Button(self.submenu_frame2, text = "Harris Corner", font = btn_font, width = btn_width, height = btn_height, command = self.harris_corner, relief = RAISED, borderwidth = btn_border)
         #btn_harris_corner.pack()
@@ -302,7 +304,7 @@ class App(Tk):
         self.patchstar_instance.approachRelative(self.patchstar_instance.a,int(step))
 
     def video(self):
-        self.window = Window(self.slicescope_instance, self.patchstar_instance, self.pvcam_instance)
+        self.window = Window(self.slicescope_instance, self.condenser_instance, self.patchstar_instance, self.pvcam_instance)
 
     def get_snapshot(self, label):
         cap = self.pvcam_instance.get_frame()
@@ -319,13 +321,37 @@ class App(Tk):
         self.patchstar_instance.calibration()
 
     def slicescope_calibration(self):
+
+        #Save current coordinate as condenser origin
+        self.condenser_instance.coordinates()
+        self.condenser_instance.z_origin = self.condenser_instance.z
+        
+        #Move condenser out of the way
+        self.condenser_instance.moveRelative(self.condenser_instance.z_origin,100000_00)
+
+        #Run Slicescope calibration
         self.slicescope_instance.calibration()
+
+        #Move condenser back to original position
+        self.condenser_instance.moveAbsolute(self.condenser_instance.z_origin)
 
     def patchstar_calibration(self):
         self.patchstar_instance.calibration()
 
+    def update_coordinates(self):
+
+        #Update current position of slicescope and patchstar.
+        self.slicescope_instance.coordinates()
+        self.patchstar_instance.coordinates()
+
+        #Update deltas w.r.t. maximum limits of slicescope and patchstar using current coordinates.
+        self.slicescope_instance.deltas()
+        self.patchstar_instance.deltas()
+
     def focus_down(self,step):
         img_proc = Image_process()
+
+        self.update_coordinates()
 
         if step < 1_00:
             step = 1_00
@@ -356,10 +382,13 @@ class App(Tk):
     def focus_up(self, step):
         img_proc = Image_process()
 
+        self.update_coordinates()
+
         #Setup figure properties for matplotlib
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
         ax.set(title = 'Convergence on the probe tip', xlabel = 'Window number', ylabel = 'Moving average (number of corners)')
+        #ax.set(title = 'Convergence on the probe tip', xlabel = 'Count index', ylabel = 'Number of corners')
         plt.show(block=False)
 
         if step < 2_00:
@@ -374,6 +403,7 @@ class App(Tk):
         focus_corners = []
 
         thread = Thread(target = self.plot_graph(ax, xs, moving_averages))
+        #thread = Thread(target = self.plot_graph(ax, xs, ys))
         thread.setDaemon(True)
         thread.start()
 
@@ -419,6 +449,7 @@ class App(Tk):
 
                 #Find the first minimum number of corners and use index to save the points and move slicescope to appropriate focus height
                 min_convergence_index = moving_averages.index(np.nanmin(moving_averages))
+                #min_convergence_index = ys.index(np.nanmin(ys))
                 tip_in_focus_height = focus_height[min_convergence_index]
                 tip_in_focus_corners = focus_corners[min_convergence_index]
                 self.slicescope_instance.moveAbsolute(self.slicescope_instance.x,self.slicescope_instance.y,int(tip_in_focus_height))
@@ -442,23 +473,67 @@ class App(Tk):
 
             print(f"iteration = {cnt}")
 
-
-
-    def find_tip_corners(self):
-        img_proc = Image_process()
+    def find_probe_direction_cropped(self):
+        img_proc = Image_process()        
 
         #Find probe direction and tip
         img_tip = self.get_snapshot(self.window.window_label)
-        tip_boundary,tip_points = img_proc.detect_probe(img_tip)
+        cropped_img_tip, tip_boundary, tip_points, x_shift, y_shift = img_proc.detect_probe(img_tip)
 
-        (x1,y1),(x2,y2),tip_angle = img_proc.detect_probe_direction(img_tip, tip_boundary, tip_points)
+        (x1,y1),(x2,y2),tip_angle = img_proc.detect_probe_direction(cropped_img_tip, tip_boundary, tip_points)
+
+        print(f'(x1,y1) = ({x1},{y1})')
+        print(f'(x2,y2) = ({x2},{y2})')
+
+        print(f'(x_shift,y_shift) = ({x_shift},{y_shift})')
 
         #update the video feed in window_label
         self.window.window_label.update()
 
-        #(x2,y2) is your estimated tip coordinate
-        if not (np.isnan(x2) or np.isnan(y2)):
+        if np.isnan(x2) or np.isnan(y2):
+            pass
 
+        else:
+
+            self.tip_angle = tip_angle
+
+            #Find Quadrant and offset from center
+            offset_x_pixels, offset_y_pixels = img_proc.quadrant(cropped_img_tip, x2, y2)
+            self.offset_x_pixels = offset_x_pixels + x_shift
+            self.offset_y_pixels = offset_y_pixels + y_shift
+
+            #add in the shift from cropped image back to full size camera image
+            x1 = x1 + x_shift
+            y1 = y1 + y_shift
+            x2 = x2 + x_shift
+            y2 = y2 + y_shift
+
+            print(f'new (x1,y1) = ({x1},{y1})')
+            print(f'new (x2,y2) = ({x2},{y2})')
+
+            self.patchstar_instance.tip_coord_x = x2
+            self.patchstar_instance.tip_coord_y = y2
+
+            return x1,y1,x2,y2
+
+    def find_tip_corners(self,x1,y1,x2,y2):
+        img_proc = Image_process()
+
+        #(x2,y2) is your estimated tip coordinate
+        if (np.isnan(x2)) or (np.isnan(y2)):
+            pass
+
+        else:
+
+            #Create new window for estimated tip coordinate
+            img_wnd = Image_window(size = self.pvcam_instance.size)
+            img_wnd.frame = self.pvcam_instance.get_frame()
+            img_wnd.clear_overlay()
+
+            height = img_wnd.frame.shape[0]
+            width = img_wnd.frame.shape[1]
+
+            #Find tip
             corner_distance = []
 
             # Loop over each data point
@@ -472,24 +547,139 @@ class App(Tk):
             #print(corner_distance)
 
             closest_corner_index =  corner_distance.index(min(corner_distance))
+
             probe_tip = self.tip_in_focus_corners[closest_corner_index]
             #print("probe tip calculation using min L2 distance")
             #print(probe_tip)
+            probe_tip_x = int(probe_tip[0])
+            probe_tip_y = int(probe_tip[1])
 
-            offset_x_pixels, offset_y_pixels = img_proc.quadrant(img_tip, x2, y2)
-            cv.circle(img_tip, (int(probe_tip[0]),int(probe_tip[1])), radius = 10, color = (255,255,255), thickness = 10)
+            #offset_x_pixels, offset_y_pixels = img_proc.quadrant(img_tip, x2, y2)
+            #cv.circle(img_tip, (int(probe_tip[0]),int(probe_tip[1])), radius = 10, color = (255), thickness = 10)
 
             # Draw corners
-            for corner in range( len(self.tip_in_focus_corners) ):
-                cv.circle(img_tip, (self.tip_in_focus_corners[corner][0],self.tip_in_focus_corners[corner][1]), radius = 2, color = (255,255,255), thickness = 2)
+            #for corner in range( len(self.tip_in_focus_corners) ):
+            #    cv.circle(img_wnd.frame, (int(self.tip_in_focus_corners[corner][0]),int(self.tip_in_focus_corners[corner][1])), radius = 2, color = (255), thickness = 2)
 
-            cv.imshow('Probe tip', img_tip)
-            cv.waitKey(10)
+            #cv.imshow('Probe tip corners', img_wnd.frame)
+            #cv.waitKey(3)
 
-            self.offset_x_pixels = offset_x_pixels
-            self.offset_y_pixels = offset_y_pixels
+            #Draw probe tip coordinate on window
 
-        self.tip_angle = tip_angle
+            dot = cv.circle(img_wnd.frame,(probe_tip_x,probe_tip_y),radius=10,color=(255),thickness=10)
+            dot_copy = dot.copy()
+            dot_arrow = cv.arrowedLine(dot_copy,(x1,y1),(x2,y2),color=(255),thickness=10)
+
+            font = cv.FONT_HERSHEY_SIMPLEX
+            fontScale = 1
+            color = (0)
+            thickness = 2
+
+            text_width_loc = int(0.3*width)
+
+            org1 = (text_width_loc,100)
+            text1 = 'Probe tip coordinate: (' + str(probe_tip_x)+ ', ' + str(probe_tip_y) + ')'
+            dot = cv.putText(dot, text1, org1, font, fontScale, color, thickness, cv.LINE_AA, False)
+            dot_arrow = cv.putText(dot_arrow, text1, org1, font, fontScale, color, thickness, cv.LINE_AA, False)
+
+            format_angle = format(self.tip_angle, '0.2f')
+            org2 = (text_width_loc,150)
+            text2 = 'Probe angle w.r.t. Y-axis: ' + str(format_angle) + ' deg'
+            dot = cv.putText(dot, text2, org2, font, fontScale, color, thickness, cv.LINE_AA, False)
+            dot_arrow = cv.putText(dot_arrow, text2, org2, font, fontScale, color, thickness, cv.LINE_AA, False)
+
+            #Show probe tip in separate window
+            cv.imshow('Probe tip', dot)
+            cv.imshow('Probe direction', dot_arrow)
+            cv.waitKey(3)
+
+            #Save image to file
+            cv.imwrite('./probe_tip.png', dot)
+            cv.imwrite('./probe_direction.png', dot_arrow)
+            #cv.imwrite('./probe_tip_corners.png', img_wnd.frame)
+
+    def find_tip_centroids(self,x1,y1,x2,y2):
+        img_proc = Image_process()
+
+        #(x2,y2) is your estimated tip coordinate
+        if (np.isnan(x2)) or (np.isnan(y2)):
+            pass
+
+        else:
+
+            #Create new window for estimated tip coordinate
+            img_wnd = Image_window(size = self.pvcam_instance.size)
+            img_wnd.frame = self.pvcam_instance.get_frame()
+            img_wnd.clear_overlay()
+
+            height = img_wnd.frame.shape[0]
+            width = img_wnd.frame.shape[1]
+
+            #Find tip
+            centroid_distance = []
+
+            # Loop over each data point
+            for i in range( len(self.k_centroid_list) ):
+                x = self.k_centroid_list[i]
+
+                # Calculate distance from each k centroid to estimated probe tip (arrow tip)
+                dist = img_proc.compute_L2_distance(x, [x2,y2])
+                centroid_distance.append(dist)
+
+            #print(corner_distance)
+
+            closest_centroid_index =  centroid_distance.index(min(centroid_distance))
+
+            probe_tip = self.k_centroid_list[closest_centroid_index]
+            #print("probe tip calculation using min L2 distance")
+            #print(probe_tip)
+            probe_tip_x = int(probe_tip[0])
+            probe_tip_y = int(probe_tip[1])
+
+            #offset_x_pixels, offset_y_pixels = img_proc.quadrant(img_tip, x2, y2)
+            #cv.circle(img_tip, (int(probe_tip[0]),int(probe_tip[1])), radius = 10, color = (255), thickness = 10)
+
+            # Draw centroids
+            #for coord in range( len(self.k_centroid_list) ):        
+            #    cv.circle(img_wnd.frame, (int(self.k_centroid_list[coord][0]),int(self.k_centroid_list[coord][1])), radius = 2, color = (255), thickness = 2)
+            #    cv.circle(img_wnd.frame, (int(self.k_centroid_list[coord][0]-x_shift),int(self.k_centroid_list[coord][1]-y_shift)), radius = 2, color = (255), thickness = 2)
+
+            #cv.imshow('Probe tip centroids', img_wnd.frame)
+            #cv.waitKey(3)
+
+            #Draw probe tip coordinate on window
+
+            dot = cv.circle(img_wnd.frame,(probe_tip_x,probe_tip_y),radius=10,color=(255),thickness=10)
+            dot_copy = dot.copy()
+            dot_arrow = cv.arrowedLine(dot_copy,(x1,y1),(x2,y2),color=(255),thickness=10)
+
+            font = cv.FONT_HERSHEY_SIMPLEX
+            fontScale = 1
+            color = (0)
+            thickness = 2
+
+            text_width_loc = int(0.3*width)
+
+            org1 = (text_width_loc,100)
+            text1 = 'Probe tip coordinate: (' + str(probe_tip_x)+ ', ' + str(probe_tip_y) + ')'
+            dot = cv.putText(dot, text1, org1, font, fontScale, color, thickness, cv.LINE_AA, False)
+            dot_arrow = cv.putText(dot_arrow, text1, org1, font, fontScale, color, thickness, cv.LINE_AA, False)
+
+            format_angle = format(self.tip_angle, '0.2f')
+            org2 = (text_width_loc,150)
+            text2 = 'Probe angle w.r.t. Y-axis: ' + str(format_angle) + ' deg'
+            dot = cv.putText(dot, text2, org2, font, fontScale, color, thickness, cv.LINE_AA, False)
+            dot_arrow = cv.putText(dot_arrow, text2, org2, font, fontScale, color, thickness, cv.LINE_AA, False)
+
+            #Show probe tip in separate window
+            cv.imshow('Probe tip', dot)
+            cv.imshow('Probe direction', dot_arrow)
+            cv.waitKey(3)
+
+            #Save image to file
+            cv.imwrite('./probe_tip.png', dot)
+            cv.imwrite('./probe_direction.png', dot_arrow)
+            #cv.imwrite('./probe_tip_centroids.png', img_wnd.frame)
 
     def autofocus(self):
 
@@ -508,29 +698,46 @@ class App(Tk):
             check_focus,check_focus_contour = img_proc.contour()  #First contour (avg,points)
             print(f"Is the probe in focus? = {check_focus}")
 
+            #User can either move probe into focus or more slicescope into focus. Once there is a focus on the probe, begin the loop.
+
             if not np.isnan(check_focus):
 
+                self.update_coordinates()
+
+                #Proceed to move down and up to autofocus on tip. 
                 self.focus_down(10_00)
 
                 self.focus_up(2_00)
 
+                #Do not need to have probes move up and down together to get direction of probe.
                 #Move slicescope and probe up together to remove background interference. Slicescope first, then micromanipulator.
                 common_z_step = min(self.slicescope_instance.z_delta,self.patchstar_instance.z_delta)  #Low magnification reference delta that slicescope and patchstar need to ensure synchronization.
-                self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,common_z_step)
-                self.patchstar_instance.moveRelative(self.patchstar_instance.x,self.patchstar_instance.y,self.patchstar_instance.z,0,0,common_z_step)
+                #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,common_z_step)
+                #self.patchstar_instance.moveRelative(self.patchstar_instance.x,self.patchstar_instance.y,self.patchstar_instance.z,0,0,common_z_step)
 
-                #Find probe direction and tip
-                #self.find_tip_centroids()
-                self.find_tip_corners()
+                #update the video feed in window_label
+                self.window.window_label.update()
+
+                #Find probe direction and tip within cropped window. This removes the Condenser ring shown on the main image.
+                #Patchstar tip_coord_x and tip_coord_y are saved here with the x_shift and y_shift included
+                x1,y1,x2,y2 = self.find_probe_direction_cropped()
+
+                #Find the probe tip using saved Harris corners or K-means centroids list
+                self.find_tip_corners(x1,y1,x2,y2)
+                #self.find_tip_centroids(x1,y1,x2,y2)
 
                 break
 
             else:
                 print('Probe is OUT OF FOCUS')
 
+        #Do not need to have probes move up and down together to get direction of probe.
         #Move slicescope and probe together back to starting point where probe tip was found. Micromanipulator first, then slicescope.
-        self.patchstar_instance.moveRelative(self.patchstar_instance.x,self.patchstar_instance.y,self.patchstar_instance.z,0,0,-common_z_step)
-        self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-common_z_step)
+        #self.patchstar_instance.moveRelative(self.patchstar_instance.x,self.patchstar_instance.y,self.patchstar_instance.z,0,0,-common_z_step)
+        #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,-common_z_step)
+
+        #update the video feed in window_label
+        #self.window.window_label.update()
 
 #________________________________________________________________________________
 
@@ -926,7 +1133,6 @@ class App(Tk):
                     cv.waitKey(3)
 
 
-
                     (x1,y1),(x2,y2), angle = img_proc.detect_probe_direction(hull_thresh, maxEllipse, points)
 
                     print('(x1,y1) = ', x1, y1)
@@ -974,7 +1180,6 @@ class App(Tk):
 
                         probe_tip_x = x + int(closest_rect_point_x)
                         probe_tip_y = y + int(closest_rect_point_y)
-
 
                         #print(int(img_wnd.size[1]),int(img_wnd.size[0]))
                         center_of_screen = [int(width/2),int(height/2)]
@@ -1280,9 +1485,10 @@ class App(Tk):
 
         return close
 
-
     def high_mag_into_water(self):
         img_proc = Image_process()
+
+        self.update_coordinates()
 
         cnt = 0
 
@@ -1313,6 +1519,8 @@ class App(Tk):
 
                 if self.slicescope_instance.z > 4000_00:     #2000_00-3000_00
                     step = 1000_00
+                elif self.slicescope_instance.z > 2000_00:
+                    step = 100_00
                 else:
                     step = 10_00
 
@@ -1337,12 +1545,11 @@ class App(Tk):
 
                     break
 
-
     def minor_high_mag_on_probe(self):
 
         img_proc = Image_process()
 
-        self.slicescope_instance.coordinates()
+        self.update_coordinates()
 
         self.slicescope_instance.high_mag_z_max = self.slicescope_instance.z
         print(f'Slicescope High Mag Z Max = {self.slicescope_instance.high_mag_z_max}')
@@ -1381,12 +1588,11 @@ class App(Tk):
 
         return img_proc.houghline_p_list
 
-
     def high_mag_on_probe(self):
 
         img_proc = Image_process()
 
-        self.slicescope_instance.coordinates()
+        self.update_coordinates()
 
         self.slicescope_instance.high_mag_z_max = self.slicescope_instance.z
         print(f'Slicescope High Mag Z Max = {self.slicescope_instance.high_mag_z_max}')
@@ -1429,6 +1635,8 @@ class App(Tk):
     def high_mag_on_tip(self):
 
         img_proc = Image_process()
+
+        self.update_coordinates()
 
         #Setup figure properties for matplotlib
         fig = plt.figure()
@@ -1644,7 +1852,8 @@ class App(Tk):
 
                         #Window_label is now live again. Save the coordinates for Slicescope and Patchstar.
 
-                        self.slicescope_instance.coordinates()
+                        self.update_coordinates()
+
                         print(f'Slicescope position - x: {self.slicescope_instance.x}')
                         print(f'Slicescope position - y: {self.slicescope_instance.y}')
                         print(f'Slicescope position - z: {self.slicescope_instance.z}')
@@ -1653,7 +1862,6 @@ class App(Tk):
                         self.slicescope_instance.y_tip = self.slicescope_instance.y
                         self.slicescope_instance.z_tip = self.slicescope_instance.z
 
-                        self.patchstar_instance.coordinates()
                         print(f'Micromanipulator position - x: {self.patchstar_instance.x}')
                         print(f'Micromanipulator position - y: {self.patchstar_instance.y}')
                         print(f'Micromanipulator position - z: {self.patchstar_instance.z}')
@@ -1677,7 +1885,6 @@ class App(Tk):
 
                     continue
 
-
     def high_mag_autofocus(self):
 
         #High mag autofocus can use img_proc.houghline_p_list == None as the parameter.
@@ -1691,6 +1898,8 @@ class App(Tk):
         #step = 50_00
         #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
         #self.slicescope_instance.moveUp(self.slicescope_instance.z,step)
+
+        self.update_coordinates()
 
         nan_none_count = 0
 
@@ -1735,8 +1944,6 @@ class App(Tk):
 
         self.high_mag_on_tip()
 
-
-
     def minor_high_mag_autofocus(self):
 
         #High mag autofocus can use img_proc.houghline_p_list == None as the parameter.
@@ -1750,6 +1957,8 @@ class App(Tk):
         #step = 50_00
         #self.slicescope_instance.moveRelative(self.slicescope_instance.x,self.slicescope_instance.y,self.slicescope_instance.z,0,0,step)
         #self.slicescope_instance.moveUp(self.slicescope_instance.z,step)
+
+        self.update_coordinates()
 
         nan_none_count = 0
 
